@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { lineColor } from "./renderers";
 import { useTwinStore } from "@/lib/services/digital-twin/state.service";
 
@@ -35,6 +36,13 @@ export function TopBar() {
             </span>
           ))}
         </div>
+
+      <Link
+        href="https://preview--rail-block-console.lovable.app/twin"
+        className="rounded-xl bg-sky-600 px-6 py-3 font-semibold text-white shadow-md transition-colors hover:bg-sky-500"
+      >
+        GO back
+      </Link>
 
         <div className="flex items-center gap-2">
           <span

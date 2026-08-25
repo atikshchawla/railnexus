@@ -1,8 +1,8 @@
 import { buildRailGraph, findRoute, junctionBetween, stationAnchors } from "./rail-graph";
 import type { DisasterEvent, LogEntry, RailwayNetwork, Train } from "./types";
 
-/** Distance at which a train detects a disruption ahead on its own path. */
-const DETECT_M = 260;
+/** Distance at which a train notices a disruption ahead and re-routes. */
+const DETECT_M = 380;
 /** Distance at which a train starts braking for a red/failed signal. */
 const SIGNAL_BRAKE_M = 260;
 /** Stand back from the signal mast. */
@@ -17,8 +17,6 @@ const TRAIN_BRAKE_M = 220;
 const DWELL_MS = 1500;
 /** Dwell at the destination station before choosing a new one (real ms). */
 const ARRIVE_DWELL_MS = 2600;
-/** Controller/driver reaction pause after detecting a problem (real ms). */
-const REACTION_MS = 1800;
 /** Minimum time between single-line turnbacks for one train (anti ping-pong). */
 const TURNBACK_COOLDOWN_MS = 4000;
 
@@ -195,34 +193,12 @@ export function stepTrains(
           );
         }
         // fall through to movement below
-      } else if (pending === "reroute") {
-        const alt = disruption
-          ? escapeRouteFromDisruption(graph, network, t, disruption, disruptedIds, anchor.trackId)
-          : findRoute(graph, t.trackId, anchor.trackId, disruptedIds);
-        const stuckOnBlockedLine =
-          !alt || (alt.length === 1 && alt[0] === t.trackId && disruption && !dieselExempt);
-        if (stuckOnBlockedLine) {
-          t.status = "HALTED";
-          t.haltReason = `${disruption ? disruption.label.toLowerCase() : "route blocked"} — no alternate route, holding`;
-          t.pendingAction = "reroute";
-          trains[id] = t;
-          continue;
-        }
-        t.route = alt!;
-        t.diverted = true;
-        applyRouteEntry(graph, network, t, anchors.get(t.destinationStationId));
-        t.status = "RUNNING";
-        t.haltReason = undefined;
-        log(
-          `${t.name}: diverting via ${describeRoute(network, t.route.slice(1))} to ${network.stations[t.destinationStationId]?.name}`,
-          "success"
-        );
-        // fall through to movement
       }
     }
 
-    // --- disruption detection (only if it lies AHEAD of this train, before
-    // the junction where it would leave this line — otherwise irrelevant) ---
+    // --- disruption detection: re-route IMMEDIATELY, without stopping ---
+    // Only if the break lies AHEAD of this train, before the junction where
+    // it would leave this line. If no alternate exists, hold and keep retrying.
     const activeDisruption = disrupted.get(t.trackId);
     const activeTrack = network.tracks[t.trackId];
     if (activeDisruption && activeDisruption.positionM !== undefined && !dieselExempt && activeTrack) {
@@ -239,32 +215,35 @@ export function stepTrains(
       const delta = (activeDisruption.positionM - t.positionM) * t.direction;
       const limitDelta = (leaveAtM - t.positionM) * t.direction;
       if (delta > 0 && delta < DETECT_M && delta < limitDelta) {
-        if (t.pendingAction !== "reroute") {
-          t.status = "HALTED";
-          t.haltReason = `${activeDisruption.label.toLowerCase()} detected — stopping`;
-          t.pendingAction = "reroute";
-          t.resumeAtMs = clockMs + REACTION_MS;
-          log(`${t.name}: ${activeDisruption.label.toLowerCase()} detected ${Math.round(delta)} m ahead — stopping`, "warn");
-          trains[id] = t;
-          continue;
-        }
-        // already reacted but reroute failed earlier — retry quietly
-        const alt = disruption
-          ? escapeRouteFromDisruption(graph, network, t, disruption, disruptedIds, anchor.trackId)
-          : findRoute(graph, t.trackId, anchor.trackId, disruptedIds);
-        if (alt && !(alt.length === 1 && alt[0] === t.trackId)) {
-          t.route = alt;
-          t.diverted = true;
-          applyRouteEntry(graph, network, t, anchors.get(t.destinationStationId));
-          t.status = "RUNNING";
-          t.haltReason = undefined;
-          log(
-            `${t.name}: diverting via ${describeRoute(network, t.route.slice(1))} to ${network.stations[t.destinationStationId]?.name}`,
-            "success"
-          );
+        const alt = escapeRouteFromDisruption(
+          graph,
+          network,
+          t,
+          activeDisruption,
+          disruptedIds,
+          anchor.trackId
+        );
+        const viable = alt && !(alt.length === 1 && alt[0] === t.trackId);
+        if (viable) {
+          if (alt!.join("|") !== t.route.join("|")) {
+            t.route = alt!;
+            t.diverted = true;
+            applyRouteEntry(graph, network, t, anchors.get(t.destinationStationId));
+            log(
+              `${t.name}: ${activeDisruption.label.toLowerCase()} ${Math.round(delta)} m ahead — diverting immediately via ${describeRoute(network, t.route.slice(1))} to ${network.stations[t.destinationStationId]?.name}`,
+              "warn"
+            );
+          }
+          // fall through to movement at full speed
         } else {
+          if (t.status !== "HALTED") {
+            log(
+              `${t.name}: ${activeDisruption.label.toLowerCase()} ahead — no alternate route, holding`,
+              "warn"
+            );
+          }
           t.status = "HALTED";
-          t.haltReason = "no alternate route — holding";
+          t.haltReason = `${activeDisruption.label.toLowerCase()} — no alternate route, holding`;
           trains[id] = t;
           continue;
         }

@@ -9,7 +9,7 @@ import {
 } from "@/lib/services/digital-twin/geometry";
 import { useTwinStore } from "@/lib/services/digital-twin/state.service";
 import type { RailwayNetwork, Selection, Vec2 } from "@/lib/services/digital-twin/types";
-import { drawBackground, drawNetwork, drawLevelCrossing, drawStation, drawPole } from "./renderers";
+import { drawBackground, drawNetwork, drawEventGhost, drawEventHighlight, drawLevelCrossing, drawStation, drawPole } from "./renderers";
 import { drawSignalNode } from "./SignalNode";
 import { TRAIN_COLORS } from "./TrainMarker";
 
@@ -128,6 +128,20 @@ export function MapRenderer() {
 
       if (e.button === 1 || e.button === 2 || (e.button === 0 && e.shiftKey)) {
         dragRef.current = { mode: "pan", startScreen: { x: e.clientX, y: e.clientY }, startCam: { ...cameraRef.current } };
+        return;
+      }
+
+      if (store.pendingDisaster) {
+        const nearest = findNearestTrack(store.network.tracks, world, SNAP_RADIUS);
+        if (!nearest) {
+          showToast("Click on or near a line to place the event.");
+          return;
+        }
+        store.triggerDisaster(store.pendingDisaster, {
+          trackId: nearest.track.id,
+          positionM: nearest.nearest.trackDistM,
+        });
+        store.setPendingDisaster(null);
         return;
       }
 
@@ -309,6 +323,10 @@ export function MapRenderer() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (useTwinStore.getState().pendingDisaster) {
+          useTwinStore.getState().setPendingDisaster(null);
+          return;
+        }
         if (draftPointsRef.current) draftPointsRef.current = null;
         else useTwinStore.getState().select(null);
       } else if (e.key === "Enter") {
@@ -374,7 +392,7 @@ export function MapRenderer() {
       const cssH = canvas.height / dpr;
       const cam = cameraRef.current;
       const store = useTwinStore.getState();
-      const { network, selection, tool, activeEvents, clockMs } = store;
+      const { network, selection, tool, activeEvents, clockMs, pendingDisaster } = store;
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -446,6 +464,42 @@ export function MapRenderer() {
           );
           ctx.globalAlpha = 1;
         }
+      }
+
+      // disaster placement ghost
+      if (pendingDisaster && cursor && !draft) {
+        const nearest = findNearestTrack(network.tracks, cursor, SNAP_RADIUS);
+        if (nearest) {
+          const cum = cumulativeLengths(nearest.track.points);
+          const { position } = pointAtDistance(nearest.track.points, cum, nearest.nearest.trackDistM);
+          const path = new Path2D();
+          nearest.track.points.forEach((pt, i) =>
+            i === 0 ? path.moveTo(pt.x, pt.y) : path.lineTo(pt.x, pt.y)
+          );
+          ctx.strokeStyle = "rgba(255,255,255,0.95)";
+          ctx.lineWidth = 14;
+          ctx.lineCap = "round";
+          ctx.stroke(path);
+          drawEventGhost(ctx, pendingDisaster, position);
+        }
+      }
+
+      // hovered active event -> highlight its line + label
+      const hovered = cursor
+        ? activeEvents.find((ev) => {
+            if (!ev.trackId || ev.positionM === undefined) return false;
+            const tr = network.tracks[ev.trackId];
+            if (!tr) return false;
+            const cum = cumulativeLengths(tr.points);
+            const { position } = pointAtDistance(tr.points, cum, ev.positionM);
+            return distance(cursor, position) < 24;
+          })
+        : null;
+      if (hovered?.trackId && hovered.positionM !== undefined) {
+        const tr = network.tracks[hovered.trackId];
+        const cum = cumulativeLengths(tr.points);
+        const { position } = pointAtDistance(tr.points, cum, hovered.positionM);
+        drawEventHighlight(ctx, tr, hovered, position, clockMs);
       }
 
       ctx.restore();

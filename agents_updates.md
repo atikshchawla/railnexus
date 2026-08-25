@@ -130,6 +130,84 @@ optimization, physics, backend/DB integration.
 | 2026-08-24 | simulation | Collision avoidance: safe-following, single-line turnbacks, junction occupancy; train legend (session 8) |
 | 2026-08-24 | simulation | Return-to-original-route after recovery; explicit diverted flag; escape routing around break position (session 9) |
 | 2026-08-24 | simulation | Event UX clarity: descriptions, affected-train counts, duplicate guards, honest notices (session 10) |
+| 2026-08-24 | simulation | User-placed calamities: click-to-place on a line, ghost preview, hover highlight of affected line (session 11) |
+| 2026-08-24 | simulation | Immediate reroute on detection — no reaction halt (session 12) |
+
+---
+
+## Session 12 — Immediate Reroute (2026-08-24)
+
+**User ask:** trains lose huge speed when encountering a problem; they should reroute
+immediately.
+
+### Root cause
+
+On detection the train HARD-STOPPED and sat through a 1.8s real-time "controller reaction"
+timer (9 sim-seconds at 5x) before rerouting — momentum killed, then a possible reversal
+detour on top. Felt like a massive speed drop.
+
+### Fix (`simulation.service.ts`)
+
+- Detection now reroutes **in the same tick without halting**: escapeRouteFromDisruption
+  → adopt route → keep RUNNING at full speed (applyRouteEntry flips direction if the
+  escape junction is behind).
+- Halt happens ONLY when no alternate route exists ("no alternate route, holding"),
+  retried quietly each tick; recovers automatically when the event clears.
+- REACTION_MS removed; pendingAction no longer has "reroute" (only depart/nextDest).
+- DETECT_M 260 → 380 so rerouting starts earlier and never gets near the break.
+
+### Verified (headless)
+
+Flood 306m ahead of Red Express → "diverting immediately via Yellow → Blue" in the same
+tick, **0 halted-due-to-disruption ticks**, only normal station dwells; arrived Noida.
+
+### Keep in mind
+
+- If a "reaction pause" is ever wanted back for drama, re-add a small resumeAtMs in the
+  detection branch — the hold path already handles the no-alternate case.
+- DETECT_M must stay < distance between typical junctions (~200-400m here) or trains will
+  divert before passing a junction they could have used.
+
+### Verification (session 12)
+
+- [x] lint clean, build passes, SSR 200, harness: 0 disruption halts, immediate divert.
+- [ ] User visual pass.
+
+---
+
+## Session 11 — User-Placed Calamities + Hover Highlight (2026-08-24)
+
+**User ask:** the user should choose WHERE the track breaks; hovering it should highlight
+the broken track.
+
+### Changes
+
+- **Placement mode**: Broken Track / Flooding / OHE Fault buttons now ARM the mode
+  (`store.pendingDisaster`, button turns sky-blue; click again or Esc to cancel).
+  In placement mode the cursor shows a **ghost marker snapped to the nearest line** plus a
+  white highlight of that line; clicking commits the event at that exact `positionM`
+  (`triggerDisaster(kind, { trackId, positionM })` — random/selection fallback kept when
+  no target passed). Clicking off-line shows a toast.
+- **Hover highlight**: hovering an active event marker (≤24 world units) draws a white+colour
+  glow along the WHOLE affected line, an enlarged pulsing ring, and a label
+  "Flooding — Red Line · 2 trains affected" (`drawEventHighlight` in renderers.ts,
+  `EVENT_COLORS` map exported).
+- Notices now include the exact spot: "Broken track on Red Line at 412 m — 1 train(s) affected…".
+- Signal Failure & Mixed Schedule remain instant (no meaningful map position).
+
+### Keep in mind
+
+- `pendingDisaster` lives in the store; MapRenderer reads it in the render loop via
+  getState and in pointer-down/Esc handlers. Reset clears it.
+- Ghost/highlight helpers: `drawEventGhost(ctx, kind, pos)` and
+  `drawEventHighlight(ctx, track, event, pos, clockMs)` — reuse for future event kinds.
+
+### Verification (session 11)
+
+- [x] Node tests: exact-position placement PASS, duplicate guard PASS, second kind on the
+      same line allowed PASS, pending set/cancel PASS.
+- [x] lint clean, build passes, SSR 200.
+- [ ] User visual pass.
 
 ---
 

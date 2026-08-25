@@ -96,8 +96,8 @@ export interface Train {
   route: string[];
   /** Sim clock time (ms) when a dwell/reaction ends. */
   resumeAtMs?: number;
-  /** What the train plans to do when its timer expires. */
-  pendingAction?: "reroute" | "depart" | "nextDest";
+  /** What the train plans to do when its dwell timer expires. */
+  pendingAction?: "depart" | "nextDest";
   /** Human-readable current action/state note. */
   haltReason?: string;
   /** Set when the controller (user) holds the train — never auto-resumed. */

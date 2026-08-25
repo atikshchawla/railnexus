@@ -42,14 +42,27 @@ const DISASTERS: { kind: DisasterKind; label: string; color: string; description
   },
 ];
 
+const LOCATION_KINDS: DisasterKind[] = ["BROKEN_TRACK", "FLOODING", "OHE_FAULT"];
+
 export function DemoControls() {
   const triggerDisaster = useTwinStore((s) => s.triggerDisaster);
   const activeEvents = useTwinStore((s) => s.activeEvents);
   const removeEvent = useTwinStore((s) => s.removeEvent);
   const clearEvents = useTwinStore((s) => s.clearEvents);
+  const pendingDisaster = useTwinStore((s) => s.pendingDisaster);
+  const setPendingDisaster = useTwinStore((s) => s.setPendingDisaster);
   const [hovered, setHovered] = useState<DisasterKind | null>(null);
 
   const hint = DISASTERS.find((d) => d.kind === hovered);
+  const pendingHint = DISASTERS.find((d) => d.kind === pendingDisaster);
+
+  const onButtonClick = (kind: DisasterKind) => {
+    if (LOCATION_KINDS.includes(kind)) {
+      setPendingDisaster(pendingDisaster === kind ? null : kind);
+    } else {
+      triggerDisaster(kind);
+    }
+  };
 
   return (
     <div className="w-[36rem] rounded-xl bg-white/95 px-3.5 py-2.5 shadow-lg ring-1 ring-slate-200 backdrop-blur">
@@ -57,7 +70,7 @@ export function DemoControls() {
         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
           Trigger Event
           <span className="ml-2 normal-case tracking-normal text-slate-400">
-            targets the selected line/signal, otherwise a random one
+            Broken Track / Flooding / OHE: click the button, then click a spot on a line
           </span>
         </span>
         {activeEvents.length > 0 && (
@@ -74,14 +87,16 @@ export function DemoControls() {
         {DISASTERS.map(({ kind, label, color, description }) => (
           <button
             key={kind}
-            onClick={() => triggerDisaster(kind)}
+            onClick={() => onButtonClick(kind)}
             onMouseEnter={() => setHovered(kind)}
             onMouseLeave={() => setHovered(null)}
             title={description}
             className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium ring-1 transition-colors ${
-              hovered === kind
-                ? "bg-slate-200 text-slate-900 ring-slate-300"
-                : "bg-slate-100 text-slate-700 ring-slate-200 hover:bg-slate-200"
+              pendingDisaster === kind
+                ? "bg-sky-600 text-white ring-sky-600"
+                : hovered === kind
+                  ? "bg-slate-200 text-slate-900 ring-slate-300"
+                  : "bg-slate-100 text-slate-700 ring-slate-200 hover:bg-slate-200"
             }`}
           >
             <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
@@ -91,11 +106,13 @@ export function DemoControls() {
       </div>
 
       <p className="mt-2 min-h-[2.6rem] rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] leading-snug text-slate-600 ring-1 ring-slate-100">
-        {hint
-          ? hint.description
-          : activeEvents.length > 0
-            ? "Click × on an event below to resolve it — affected trains recover automatically and return to their original route."
-            : "Hover a button to see what it does. Click to trigger it now."}
+        {pendingHint
+          ? `Placing: ${pendingHint.label} — move over a line and click to set the exact spot. Esc or the button again cancels.`
+          : hint
+            ? hint.description
+            : activeEvents.length > 0
+              ? "Hover a red marker on the map to highlight the affected line. Click × on an event to resolve it."
+              : "Hover a button to see what it does. Click to trigger."}
       </p>
 
       {activeEvents.length > 0 && (

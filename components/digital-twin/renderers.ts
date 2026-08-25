@@ -1,16 +1,8 @@
 import { cumulativeLengths, findNearestTrack, pointAtDistance } from "@/lib/services/digital-twin/geometry";
 import { isDiverted } from "@/lib/services/digital-twin/simulation.service";
-import type { DisasterEvent, DisasterKind, RailwayNetwork, Selection, Station, Track, Vec2 } from "@/lib/services/digital-twin/types";
+import type { DisasterEvent, RailwayNetwork, Selection, Station, Track, Vec2 } from "@/lib/services/digital-twin/types";
 import { drawSignalNode } from "./SignalNode";
 import { drawTrainMarker } from "./TrainMarker";
-
-export const EVENT_COLORS: Record<DisasterKind, string> = {
-  BROKEN_TRACK: "#dc2626",
-  FLOODING: "#0284c7",
-  SIGNAL_FAILURE: "#d97706",
-  OHE_FAULT: "#ea580c",
-  MIXED_SCHEDULE: "#7c3aed",
-};
 
 export const TRACK_COLORS: Record<Track["kind"], string> = {
   up: "#dc2626",
@@ -110,85 +102,6 @@ function drawBolt(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.restore();
-}
-
-/** Ghost preview while the user is placing a location-based disaster. */
-export function drawEventGhost(
-  ctx: CanvasRenderingContext2D,
-  kind: DisasterKind,
-  position: Vec2
-): void {
-  ctx.globalAlpha = 0.65;
-  if (kind === "BROKEN_TRACK") {
-    ctx.beginPath();
-    ctx.arc(position.x, position.y, 9, 0, Math.PI * 2);
-    ctx.strokeStyle = EVENT_COLORS.BROKEN_TRACK;
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-    ctx.strokeStyle = EVENT_COLORS.BROKEN_TRACK;
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(position.x - 6, position.y - 6);
-    ctx.lineTo(position.x + 6, position.y + 6);
-    ctx.moveTo(position.x + 6, position.y - 6);
-    ctx.lineTo(position.x - 6, position.y + 6);
-    ctx.stroke();
-  } else if (kind === "FLOODING") {
-    ctx.beginPath();
-    ctx.arc(position.x, position.y, 10, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(14,165,233,0.4)";
-    ctx.fill();
-    ctx.strokeStyle = EVENT_COLORS.FLOODING;
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-  } else if (kind === "OHE_FAULT") {
-    drawBolt(ctx, position.x, position.y - 18);
-    ctx.beginPath();
-    ctx.arc(position.x, position.y, 6, 0, Math.PI * 2);
-    ctx.strokeStyle = EVENT_COLORS.OHE_FAULT;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-}
-
-/** Full highlight when the user hovers an active event marker. */
-export function drawEventHighlight(
-  ctx: CanvasRenderingContext2D,
-  track: Track,
-  event: DisasterEvent,
-  position: Vec2,
-  clockMs: number
-): void {
-  const color = EVENT_COLORS[event.kind];
-
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 16;
-  strokePolyline(ctx, track.points);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 12;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 16;
-  strokePolyline(ctx, track.points);
-  ctx.shadowBlur = 0;
-
-  const pulse = 14 + Math.sin(clockMs / 160) * 3;
-  ctx.beginPath();
-  ctx.arc(position.x, position.y, pulse, 0, Math.PI * 2);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  ctx.font = "bold 12px ui-sans-serif, system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "rgba(248,250,252,0.95)";
-  const label = `${event.label} · ${event.affectedTrains ?? 0} train${event.affectedTrains === 1 ? "" : "s"} affected`;
-  ctx.strokeText(label, position.x, position.y - 30);
-  ctx.fillStyle = color;
-  ctx.fillText(label, position.x, position.y - 30);
 }
 
 /** A station touching 2+ tracks is an interchange. */

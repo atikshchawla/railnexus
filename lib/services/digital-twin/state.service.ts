@@ -32,7 +32,6 @@ interface TwinState {
   notice: string | null;
   noticeUntil: number;
   log: LogEntry[];
-  pendingDisaster: DisasterKind | null;
 
   setTool: (tool: Tool) => void;
   select: (selection: Selection | null) => void;
@@ -58,10 +57,9 @@ interface TwinState {
   moveTrain: (trainId: string, positionM: number) => void;
 
   /* disasters */
-  triggerDisaster: (kind: DisasterKind, target?: { trackId: string; positionM: number }) => void;
+  triggerDisaster: (kind: DisasterKind) => void;
   removeEvent: (eventId: string) => void;
   clearEvents: () => void;
-  setPendingDisaster: (kind: DisasterKind | null) => void;
 }
 
 const ASPECT_CYCLE: SignalAspect[] = ["GREEN", "YELLOW", "DOUBLE_YELLOW", "RED"];
@@ -94,7 +92,6 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   notice: null,
   noticeUntil: 0,
   log: [],
-  pendingDisaster: null,
 
   setTool: (tool) => set({ tool, selection: null }),
   select: (selection) => set({ selection }),
@@ -302,7 +299,6 @@ export const useTwinStore = create<TwinState>((set, get) => ({
       selection: null,
       running: true,
       activeEvents: [],
-      pendingDisaster: null,
       log: toLogEntries([{ timeMs: s.clockMs, text: "Demo reset — network restored", kind: "info" }]),
     })),
 
@@ -364,7 +360,7 @@ export const useTwinStore = create<TwinState>((set, get) => ({
       };
     }),
 
-  triggerDisaster: (kind, target) =>
+  triggerDisaster: (kind) =>
     set((s) => {
       const events = [...s.activeEvents];
       let notice: string;
@@ -466,18 +462,12 @@ export const useTwinStore = create<TwinState>((set, get) => ({
       } else {
         const tracks = Object.values(s.network.tracks);
         if (tracks.length === 0) return s;
-        const track = target
-          ? s.network.tracks[target.trackId]
-          : (() => {
-              const selectedTrack =
-                s.selection?.kind === "track"
-                  ? s.network.tracks[s.selection.id.split("::")[0]]
-                  : undefined;
-              return (
-                selectedTrack ?? tracks[Math.floor(Math.random() * tracks.length)]
-              );
-            })();
-        if (!track) return s;
+        const selectedTrack =
+          s.selection?.kind === "track"
+            ? s.network.tracks[s.selection.id.split("::")[0]]
+            : undefined;
+        const track =
+          selectedTrack ?? tracks[Math.floor(Math.random() * tracks.length)];
 
         const duplicate = events.find((e) => e.kind === kind && e.trackId === track.id);
         if (duplicate) {
@@ -487,9 +477,7 @@ export const useTwinStore = create<TwinState>((set, get) => ({
           };
         }
 
-        const positionM = target
-          ? Math.max(0, Math.min(Math.round(target.positionM), track.lengthM))
-          : Math.round(track.lengthM * (0.3 + Math.random() * 0.4));
+        const positionM = Math.round(track.lengthM * (0.3 + Math.random() * 0.4));
         const onLine = Object.values(s.network.trains).filter((tr) => tr.trackId === track.id);
         const affected =
           kind === "OHE_FAULT" ? onLine.filter((tr) => tr.kind !== "FREIGHT") : onLine;
@@ -504,15 +492,14 @@ export const useTwinStore = create<TwinState>((set, get) => ({
         });
 
         let notice: string;
-        const at = ` at ${positionM} m`;
         if (kind === "OHE_FAULT" && affected.length === 0) {
-          notice = `OHE fault on ${track.name}${at} — only freight (diesel) present, trains keep running`;
+          notice = `OHE fault on ${track.name} — only freight (diesel) present, trains keep running`;
         } else if (affected.length === 0) {
-          notice = `${DISASTER_LABELS[kind]} on ${track.name}${at} — no trains on the line right now`;
+          notice = `${DISASTER_LABELS[kind]} on ${track.name} — no trains on the line right now`;
         } else if (kind === "OHE_FAULT") {
-          notice = `OHE fault on ${track.name}${at} — ${affected.length} electric train(s) will divert or hold; freight keeps running`;
+          notice = `OHE fault on ${track.name} — ${affected.length} electric train(s) will divert or hold; freight keeps running`;
         } else {
-          notice = `${DISASTER_LABELS[kind]} on ${track.name}${at} — ${affected.length} train(s) affected: they will stop, then divert via another line`;
+          notice = `${DISASTER_LABELS[kind]} on ${track.name} — ${affected.length} train(s) affected: they will stop, then divert via another line`;
         }
         return {
           activeEvents: events,
@@ -566,6 +553,4 @@ export const useTwinStore = create<TwinState>((set, get) => ({
           ]
         : s.log,
     })),
-
-  setPendingDisaster: (kind) => set({ pendingDisaster: kind }),
 }));

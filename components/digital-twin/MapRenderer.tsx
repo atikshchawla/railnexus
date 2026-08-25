@@ -9,7 +9,7 @@ import {
 } from "@/lib/services/digital-twin/geometry";
 import { useTwinStore } from "@/lib/services/digital-twin/state.service";
 import type { RailwayNetwork, Selection, Vec2 } from "@/lib/services/digital-twin/types";
-import { drawBackground, drawNetwork, drawEventGhost, drawEventHighlight, drawStation, drawPole } from "./renderers";
+import { drawBackground, drawNetwork, drawLevelCrossing, drawStation, drawPole } from "./renderers";
 import { drawSignalNode } from "./SignalNode";
 import { TRAIN_COLORS } from "./TrainMarker";
 

@@ -7,7 +7,7 @@ import { TopBar } from "@/components/digital-twin/TopBar";
 
 export default function DigitalTwinPage() {
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-slate-50">
+    <main className="relative h-screen w-screen overflow-hidden bg-background">
       <MapRenderer />
 
       <div className="pointer-events-none absolute inset-0 z-10">

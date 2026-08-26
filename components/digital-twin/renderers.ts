@@ -23,7 +23,7 @@ export function lineColor(track: Track): string {
   return track.color ?? TRACK_COLORS[track.kind];
 }
 
-const CANVAS_BG = "#f8fafc";
+const CANVAS_BG = "#1a1d2e";
 
 export function drawBackground(
   ctx: CanvasRenderingContext2D,
@@ -39,7 +39,7 @@ export function drawBackground(
 
   ctx.save();
   ctx.translate(Math.floor(wx0 / 100) * 100, Math.floor(wy0 / 100) * 100);
-  ctx.strokeStyle = "rgba(15,23,42,0.045)";
+  ctx.strokeStyle = "rgba(255,255,255,0.04)";
   ctx.lineWidth = 1 / ctx.getTransform().a;
   ctx.beginPath();
   for (let x = 0; x <= worldW + 200; x += 100) {
@@ -64,8 +64,8 @@ export function drawTrack(
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // white casing (metro-map look)
-  ctx.strokeStyle = "#ffffff";
+  // dark casing (metro-map look)
+  ctx.strokeStyle = "#2a2d3e";
   ctx.lineWidth = selected ? 16 : 13;
   strokePolyline(ctx, track.points);
 
@@ -106,7 +106,7 @@ function drawBolt(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
   ctx.closePath();
   ctx.fillStyle = "#ea580c";
   ctx.fill();
-  ctx.strokeStyle = "#ffffff";
+  ctx.strokeStyle = "#1a1d2e";
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.restore();
@@ -164,7 +164,7 @@ export function drawEventHighlight(
 
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.strokeStyle = "#ffffff";
+  ctx.strokeStyle = "#2a2d3e";
   ctx.lineWidth = 16;
   strokePolyline(ctx, track.points);
   ctx.strokeStyle = color;
@@ -184,7 +184,7 @@ export function drawEventHighlight(
   ctx.font = "bold 12px ui-sans-serif, system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.lineWidth = 4;
-  ctx.strokeStyle = "rgba(248,250,252,0.95)";
+  ctx.strokeStyle = "rgba(26,29,46,0.95)";
   const label = `${event.label} · ${event.affectedTrains ?? 0} train${event.affectedTrains === 1 ? "" : "s"} affected`;
   ctx.strokeText(label, position.x, position.y - 30);
   ctx.fillStyle = color;
@@ -232,7 +232,7 @@ export function drawStation(
 
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#2a2d3e";
   ctx.fill();
   ctx.strokeStyle = selected ? "#0284c7" : ringColor;
   ctx.lineWidth = selected ? 3.5 : 2.5;
@@ -253,9 +253,9 @@ export function drawStation(
     : "11px ui-sans-serif, system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.lineWidth = 3.5;
-  ctx.strokeStyle = "rgba(248,250,252,0.9)";
+  ctx.strokeStyle = "rgba(26,29,46,0.9)";
   ctx.strokeText(station.name, x, y + r + 15);
-  ctx.fillStyle = "#0f172a";
+  ctx.fillStyle = "#e8e8ed";
   ctx.fillText(station.name, x, y + r + 15);
 }
 
@@ -270,7 +270,7 @@ export function drawLevelCrossing(
 
   ctx.beginPath();
   ctx.arc(x, y, 8, 0, Math.PI * 2);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#2a2d3e";
   ctx.fill();
   ctx.strokeStyle = selected ? "#0284c7" : "#334155";
   ctx.lineWidth = selected ? 3 : 2;
@@ -430,7 +430,7 @@ export function drawNetwork(
       ctx.font = "bold 11px ui-sans-serif, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.lineWidth = 3.5;
-      ctx.strokeStyle = "rgba(248,250,252,0.9)";
+      ctx.strokeStyle = "rgba(26,29,46,0.9)";
       ctx.strokeText("DESTINATION", station.position.x, station.position.y - 24);
       ctx.fillStyle = "#0284c7";
       ctx.fillText("DESTINATION", station.position.x, station.position.y - 24);

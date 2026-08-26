@@ -29,9 +29,9 @@ export function drawTrainMarker(
   // drop shadow
   ctx.beginPath();
   ctx.roundRect(-hl, -hw, BODY_LENGTH, BODY_WIDTH, 7);
-  ctx.shadowColor = "rgba(15,23,42,0.35)";
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
   ctx.shadowBlur = 8;
-  ctx.fillStyle = "rgba(15,23,42,0.25)";
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
   ctx.fill();
   ctx.shadowBlur = 0;
 
@@ -40,12 +40,12 @@ export function drawTrainMarker(
   ctx.roundRect(-hl, -hw, BODY_LENGTH, BODY_WIDTH, 7);
   ctx.fillStyle = TRAIN_COLORS[train.kind];
   ctx.fill();
-  ctx.strokeStyle = "#ffffff";
+  ctx.strokeStyle = "#1a1d2e";
   ctx.lineWidth = 2.5;
   ctx.stroke();
 
   // windshield stripe
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
   ctx.fillRect(-hl + 7, -1.75, BODY_LENGTH - 18, 3.5);
 
   // direction chevron
@@ -56,7 +56,7 @@ export function drawTrainMarker(
   ctx.closePath();
   ctx.fillStyle = TRAIN_COLORS[train.kind];
   ctx.fill();
-  ctx.strokeStyle = "#ffffff";
+  ctx.strokeStyle = "#1a1d2e";
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
@@ -66,7 +66,7 @@ export function drawTrainMarker(
     ctx.arc(hl - 4, -hw - 2, 4, 0, Math.PI * 2);
     ctx.fillStyle = "#dc2626";
     ctx.fill();
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = "#1a1d2e";
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }
@@ -86,12 +86,12 @@ export function drawTrainMarker(
   ctx.font = "bold 11px ui-sans-serif, system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.lineWidth = 3.5;
-  ctx.strokeStyle = "rgba(248,250,252,0.9)";
+  ctx.strokeStyle = "rgba(26,29,46,0.9)";
   const suffix =
     train.status === "HALTED" ? " (halted)" : diverted ? " · diverted" : "";
   const label = `${train.name}${suffix}`;
   ctx.strokeText(label, 0, hw + 15);
-  ctx.fillStyle = train.status === "HALTED" ? "#b91c1c" : diverted ? "#d97706" : "#0f172a";
+  ctx.fillStyle = train.status === "HALTED" ? "#fca5a5" : diverted ? "#fbbf24" : "#e8e8ed";
   ctx.fillText(label, 0, hw + 15);
 
   ctx.restore();

@@ -29,8 +29,8 @@ export function Toolbar() {
 
   return (
     <div className="flex w-40 flex-col gap-3">
-      <div className="flex flex-col gap-0.5 rounded-xl bg-white/95 p-1.5 shadow-lg ring-1 ring-slate-200 backdrop-blur">
-        <span className="px-2 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      <div className="panel flex flex-col gap-0.5 p-1.5">
+        <span className="num px-2 pb-0.5 pt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
           Tools
         </span>
         {TOOLS.map(({ id, label, hint }) => (
@@ -38,30 +38,30 @@ export function Toolbar() {
             key={id}
             onClick={() => setTool(id)}
             title={hint}
-            className={`rounded-lg px-3 py-1.5 text-left text-[13px] font-medium transition-colors ${
+            className={`px-3 py-1.5 text-left text-[13px] font-medium transition-colors ${
               tool === id
-                ? "bg-sky-600 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "border border-signal-amber bg-signal-amber/10 text-signal-amber"
+                : "text-muted-foreground hover:bg-panel-raised"
             }`}
           >
             {label}
           </button>
         ))}
-        <p className="mt-1 rounded-lg bg-sky-50 px-2.5 py-2 text-[11px] leading-snug text-sky-900 ring-1 ring-sky-100">
+        <p className="num mt-1 border border-border bg-panel-raised px-2.5 py-2 text-[11px] leading-snug text-muted-foreground">
           {activeHint}
         </p>
       </div>
 
-      <div className="flex flex-col gap-0.5 rounded-xl bg-white/95 p-1.5 shadow-lg ring-1 ring-slate-200 backdrop-blur">
-        <span className="px-2 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      <div className="panel flex flex-col gap-0.5 p-1.5">
+        <span className="num px-2 pb-0.5 pt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
           Simulation
         </span>
         <button
           onClick={toggleRunning}
-          className={`rounded-lg px-3 py-1.5 text-left text-[13px] font-medium transition-colors ${
+          className={`px-3 py-1.5 text-left text-[13px] font-medium transition-colors ${
             running
-              ? "text-slate-600 hover:bg-slate-100"
-              : "bg-emerald-600 text-white hover:bg-emerald-500"
+              ? "text-muted-foreground hover:bg-panel-raised"
+              : "border border-signal-green bg-signal-green/10 text-signal-green"
           }`}
         >
           {running ? "Pause" : "Play"}
@@ -71,10 +71,10 @@ export function Toolbar() {
             <button
               key={speed}
               onClick={() => setSpeedMultiplier(speed)}
-              className={`flex-1 rounded-md px-1 py-1 text-[11px] font-semibold transition-colors ${
+              className={`num flex-1 border px-1 py-1 text-[11px] font-semibold transition-colors ${
                 speedMultiplier === speed
-                  ? "bg-sky-600 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "border-signal-amber bg-signal-amber/10 text-signal-amber"
+                  : "border-border text-muted-foreground hover:bg-panel-raised"
               }`}
             >
               {speed}x
@@ -83,7 +83,7 @@ export function Toolbar() {
         </div>
         <button
           onClick={resetNetwork}
-          className="rounded-lg px-3 py-1.5 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100"
+          className="px-3 py-1.5 text-left text-[13px] font-medium text-muted-foreground transition-colors hover:bg-panel-raised"
         >
           Reset Demo
         </button>

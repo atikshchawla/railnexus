@@ -38,7 +38,7 @@ export function drawSignalNode(
     ctx.arc(-5 + i * 10, -16, 4.5, 0, Math.PI * 2);
     ctx.fillStyle = failed ? "#334155" : ASPECT_COLORS[aspect];
     ctx.fill();
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = "#1a1d2e";
     ctx.lineWidth = 1.75;
     ctx.stroke();
   }

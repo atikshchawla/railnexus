@@ -13,7 +13,7 @@ export function InspectorPanel() {
 
   if (!selection) {
     body = (
-      <p className="text-[13px] leading-relaxed text-slate-500">
+      <p className="text-[13px] leading-relaxed text-muted-foreground">
         Nothing selected. Pick a tool to inspect or place elements.
         <br />
         <br />
@@ -32,17 +32,17 @@ export function InspectorPanel() {
         <Row label="Line" value={track ? track.name : "—"} />
         <PositionReadout trainId={train.id} />
         <Row label="Speed" value={`${train.speedKmph} km/h`} />
-        <div className="mt-2 border-t border-slate-100 pt-2">
+        <div className="mt-2 border-t border-border pt-2">
           <Row
             label="Destination"
             value={network.stations[train.destinationStationId]?.name ?? "—"}
           />
           {isDiverted(train) && (
             <div className="mt-1.5">
-              <span className="text-[11px] uppercase tracking-wide text-slate-400">
+              <span className="num text-[11px] uppercase tracking-wide text-muted-foreground">
                 Original plan
               </span>
-              <p className="mt-0.5 text-[11px] leading-snug text-slate-400 line-through">
+              <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground line-through">
                 {train.originalRoute
                   .map((tid) => network.tracks[tid]?.name ?? "?")
                   .join(" → ")}
@@ -50,17 +50,17 @@ export function InspectorPanel() {
             </div>
           )}
           <div className="mt-1.5">
-            <span className="text-[11px] uppercase tracking-wide text-slate-400">
+            <span className="num text-[11px] uppercase tracking-wide text-muted-foreground">
               {isDiverted(train) ? "Diverted route" : "Route"}
             </span>
-            <p className="mt-0.5 text-[11px] leading-snug text-slate-600">
+            <p className="mt-0.5 text-[11px] leading-snug text-foreground">
               {train.route.length > 0
                 ? train.route
                     .map((tid) => network.tracks[tid]?.name ?? "?")
                     .join(" → ")
                 : "planning…"}
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 text-[11px] text-muted-foreground">
               Next:{" "}
               {train.route[1]
                 ? `switch to ${network.tracks[train.route[1]]?.name ?? "?"}`
@@ -73,15 +73,15 @@ export function InspectorPanel() {
         <div className="flex items-center gap-2 pt-1.5">
           <button
             onClick={() => toggleTrainHalt(train.id)}
-            className={`rounded-lg px-3 py-1 text-xs font-semibold text-white transition-colors ${
+            className={`border px-3 py-1 text-xs font-semibold transition-colors ${
               train.manualHold
-                ? "bg-emerald-600 hover:bg-emerald-500"
-                : "bg-rose-600 hover:bg-rose-500"
+                ? "border-signal-green text-signal-green hover:bg-signal-green/10"
+                : "border-signal-red text-signal-red hover:bg-signal-red/10"
             }`}
           >
             {train.manualHold ? "Release" : "Hold"}
           </button>
-          <span className="text-[11px] text-slate-400">or drag it along its line</span>
+          <span className="text-[11px] text-muted-foreground">or drag it along its line</span>
         </div>
       </div>
     ) : (
@@ -96,7 +96,7 @@ export function InspectorPanel() {
         <Row label="At" value={`${Math.round(signal.positionM)} m on line`} />
         <button
           onClick={() => cycleSignalAspect(signal.id)}
-          className="mt-1 rounded-lg bg-sky-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-sky-500"
+          className="mt-1 border border-signal-amber px-3 py-1 text-xs font-semibold text-signal-amber transition-colors hover:bg-signal-amber/10"
         >
           Cycle Aspect
         </button>
@@ -110,7 +110,7 @@ export function InspectorPanel() {
       <div className="space-y-1.5 text-[13px]">
         <Row label="Name" value={station.name} />
         <Row label="Platforms" value={String(station.platforms)} />
-        <p className="pt-1 text-[11px] text-slate-400">Drag to reposition.</p>
+        <p className="pt-1 text-[11px] text-muted-foreground">Drag to reposition.</p>
       </div>
     ) : (
       <Deleted />
@@ -144,14 +144,14 @@ export function InspectorPanel() {
         <Row label="Name" value={track.name} />
         <Row label="Kind" value={track.kind} />
         <Row label="Length" value={`${Math.round(track.lengthM)} m`} />
-        <p className="pt-1 text-[11px] text-slate-400">Drag vertices to reshape.</p>
+        <p className="pt-1 text-[11px] text-muted-foreground">Drag vertices to reshape.</p>
       </div>
     ) : null;
   }
 
   return (
-    <div className="w-64 rounded-xl bg-white/95 p-3 shadow-lg ring-1 ring-slate-200 backdrop-blur">
-      <h2 className="mb-2 border-b border-slate-200 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+    <div className="panel w-64 p-3">
+      <h2 className="num mb-2 border-b border-border pb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
         Inspector
       </h2>
       {body}
@@ -167,12 +167,12 @@ function PositionReadout({ trainId }: { trainId: string }) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="text-slate-400">{label}</span>
-      <span className="font-medium text-slate-800">{value}</span>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="num font-medium text-foreground">{value}</span>
     </div>
   );
 }
 
 function Deleted() {
-  return <p className="text-[13px] font-medium text-rose-600">Entity no longer exists.</p>;
+  return <p className="text-[13px] font-medium text-signal-red">Entity no longer exists.</p>;
 }

@@ -425,7 +425,7 @@ export function MapRenderer() {
           ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
           ctx.fillStyle = "#0284c7";
           ctx.fill();
-          ctx.strokeStyle = "#ffffff";
+          ctx.strokeStyle = "#1a1d2e";
           ctx.lineWidth = 2;
           ctx.stroke();
         }
@@ -448,7 +448,7 @@ export function MapRenderer() {
               ctx.roundRect(position.x - 17, position.y - 8, 34, 16, 7);
               ctx.fillStyle = TRAIN_COLORS.PASSENGER;
               ctx.fill();
-              ctx.strokeStyle = "#ffffff";
+              ctx.strokeStyle = "#1a1d2e";
               ctx.lineWidth = 2.5;
               ctx.stroke();
             }
@@ -476,7 +476,7 @@ export function MapRenderer() {
           nearest.track.points.forEach((pt, i) =>
             i === 0 ? path.moveTo(pt.x, pt.y) : path.lineTo(pt.x, pt.y)
           );
-          ctx.strokeStyle = "rgba(255,255,255,0.95)";
+          ctx.strokeStyle = "rgba(42,45,62,0.95)";
           ctx.lineWidth = 14;
           ctx.lineCap = "round";
           ctx.stroke(path);
@@ -513,7 +513,7 @@ export function MapRenderer() {
   }, []);
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-[#f8fafc]">
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-[#1a1d2e]">
       <canvas
         ref={canvasRef}
         className="cursor-crosshair touch-none select-none"
@@ -530,39 +530,39 @@ export function MapRenderer() {
         <button
           onClick={() => zoomAtCenter(1.25)}
           title="Zoom in (+)"
-          className="h-9 w-9 rounded-lg bg-white/95 text-lg font-bold text-slate-600 shadow-md ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
+          className="panel num h-9 w-9 bg-panel-raised text-lg font-bold text-foreground transition-colors hover:bg-border"
         >
           +
         </button>
         <button
           onClick={() => zoomAtCenter(0.8)}
           title="Zoom out (−)"
-          className="h-9 w-9 rounded-lg bg-white/95 text-lg font-bold text-slate-600 shadow-md ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
+          className="panel num h-9 w-9 bg-panel-raised text-lg font-bold text-foreground transition-colors hover:bg-border"
         >
           −
         </button>
         <button
           onClick={fitView}
           title="Fit network in view (0)"
-          className="h-9 w-9 rounded-lg bg-white/95 text-[10px] font-bold uppercase text-slate-600 shadow-md ring-1 ring-slate-200 transition-colors hover:bg-slate-100"
+          className="panel num h-9 w-9 bg-panel-raised text-[10px] font-bold uppercase text-foreground transition-colors hover:bg-border"
         >
           Fit
         </button>
       </div>
 
       {notice && (
-        <div className="pointer-events-none absolute left-1/2 top-14 z-30 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg ring-1 ring-white/10">
+        <div className="pointer-events-none absolute left-1/2 top-14 z-30 -translate-x-1/2 border border-border bg-panel px-4 py-2 text-xs font-medium text-foreground">
           {notice}
         </div>
       )}
 
       {toast && (
-        <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg">
+        <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 border border-border bg-panel px-4 py-2 text-xs font-medium text-foreground">
           {toast}
         </div>
       )}
 
-      <div className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-white/90 px-3 py-1.5 text-xs text-slate-500 ring-1 ring-slate-200">
+      <div className="pointer-events-none absolute bottom-3 right-3 border border-border bg-panel px-3 py-1.5 text-xs text-muted-foreground">
         Drag to pan · Scroll to zoom · Coloured dashes = planned route · Grey dashes = abandoned by diversion
       </div>
     </div>

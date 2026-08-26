@@ -38,7 +38,7 @@ export function TopBar() {
         </div>
 
       <Link
-        href="http://localhost:3000/"
+        href="/"
         className="rounded-xl bg-sky-600 px-6 py-3 font-semibold text-white shadow-md transition-colors hover:bg-sky-500"
       >
         GO back

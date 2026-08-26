@@ -78,7 +78,7 @@ export function MapRenderer() {
       if (!track) continue;
       const cum = cumulativeLengths(track.points);
       const { position } = pointAtDistance(track.points, cum, signal.positionM);
-      if (distance(p, { x: position.x, y: position.y - 13 }) <= 14) {
+      if (distance(p, { x: position.x, y: position.y - 31 }) <= 16) {
         return { kind: "signal", id: signal.id };
       }
     }

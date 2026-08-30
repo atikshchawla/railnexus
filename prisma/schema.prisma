@@ -11,3 +11,9 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model ServiceRequest {
+  id         Int      @id @default(autoincrement())
+  receivedAt DateTime @default(now())
+  request    Json
+}

@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaNeonHttp } from "@prisma/adapter-neon";
 import { PrismaClient } from "@/generated/prisma/client";
 
 function createPrismaClient() {
@@ -11,11 +11,16 @@ function createPrismaClient() {
 		);
 	}
 
-	const adapter = new PrismaPg({ connectionString });
+	// Neon's HTTP driver adapter works on Cloudflare Workers (uses fetch),
+	// unlike the `pg` TCP driver which fails to bundle on Workers.
+	const adapter = new PrismaNeonHttp(connectionString, {
+		arrayMode: true,
+		fullResults: true,
+	});
 	return new PrismaClient({ adapter });
 }
 
-// Reuse a single instance per process to avoid exhausting connection pools.
+// Reuse a single instance per process to avoid exhausting connections.
 const globalForPrisma = globalThis as unknown as {
 	prisma?: PrismaClient;
 };

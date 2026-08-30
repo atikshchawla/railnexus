@@ -1,23 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 
-type StoredRequest = {
-	receivedAt: string;
-	body: unknown;
-};
-
-// In-memory storage for received requests (dev only — resets on restart).
-const received: StoredRequest[] = [];
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
 	try {
 		// 1. Read request body
 		const body = await request.json();
 
-		received.push({ receivedAt: new Date().toISOString(), body });
+		// 2. Persist to Postgres so the request is visible across all instances.
+		await prisma.serviceRequest.create({
+			data: { request: body as object },
+		});
 
 		console.log("Service request received:", body);
 
-		// 2. Temporary response (authentication will be added later)
+		// 3. Temporary response (authentication will be added later)
 		return NextResponse.json(
 			{
 				success: true,
@@ -37,5 +34,38 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-	return NextResponse.json({ requests: received }, { status: 200 });
+	try {
+		const stored = await prisma.serviceRequest.findMany({
+			orderBy: { id: "asc" },
+		});
+
+		const requests = stored.map((r) => ({
+			receivedAt: r.receivedAt.toISOString(),
+			body: r.request,
+		}));
+
+		return NextResponse.json({ requests }, { status: 200 });
+	} catch (error) {
+		console.error("Failed to list service requests:", error);
+
+		return NextResponse.json({ requests: [] }, { status: 500 });
+	}
+}
+
+export async function DELETE() {
+	try {
+		await prisma.serviceRequest.deleteMany();
+
+		return NextResponse.json(
+			{ success: true, message: "All service requests removed" },
+			{ status: 200 }
+		);
+	} catch (error) {
+		console.error("Failed to remove service requests:", error);
+
+		return NextResponse.json(
+			{ error: "Failed to remove requests" },
+			{ status: 500 }
+		);
+	}
 }

@@ -6,13 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "prisma generate"
+    "lint": "eslint"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
-    "@prisma/adapter-neon": "^7.10.0",
-    "@prisma/client": "^7.9.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "next": "16.3.2",
@@ -28,7 +25,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
-    "prisma": "^7.9.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

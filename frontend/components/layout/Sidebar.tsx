@@ -4,20 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Wrench,
-  Layers,
+  ClipboardList,
+  Calendar,
+  AlertTriangle,
   CheckSquare,
-  Map,
   BarChart3,
   Radio,
 } from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "Maintenance requests", href: "/maintenance", icon: Wrench },
-  { label: "Shadow blocks", href: "/shadow-blocks", icon: Layers },
+  { label: "Overview", href: "/", icon: LayoutDashboard },
+  { label: "Maintenance backlog", href: "/backlog", icon: ClipboardList },
+  { label: "Block plan", href: "/plan", icon: Calendar },
+  { label: "Conflicts", href: "/conflicts", icon: AlertTriangle },
   { label: "Approvals", href: "/approvals", icon: CheckSquare },
-  { label: "Digital twin", href: "/twin", icon: Map },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
 
@@ -39,7 +39,10 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            item.href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
             <Link

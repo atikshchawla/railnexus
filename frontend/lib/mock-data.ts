@@ -49,7 +49,7 @@ export const mockBacklog: BacklogItem[] = [
     department: "S&T",
     description: "Track circuit relay degradation — RUL prediction: 14 days",
     location: "Km 252/7, DN",
-    provenance: { system: "TDMS", lastSynced: "8m ago" },
+    provenance: { system: "SMMS", lastSynced: "8m ago" },
     hasConflict: false,
   },
   {
@@ -60,7 +60,7 @@ export const mockBacklog: BacklogItem[] = [
     department: "TRD",
     description: "OHE dropper snapped — power block needed",
     location: "Km 239/2, UP",
-    provenance: { system: "SMMS", lastSynced: "5m ago" },
+    provenance: { system: "TDMS", lastSynced: "5m ago" },
     hasConflict: false,
   },
   {

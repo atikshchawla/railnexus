@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-primary: var(--primary);
+  
+  --color-signal-amber: var(--signal-amber);
+  --color-signal-green: var(--signal-green);
+  --color-signal-red: var(--signal-red);
+  --color-signal-blue: var(--signal-blue);
+}
+
+:root {
+  --background: oklch(0.18 0.014 265);
+  --foreground: oklch(0.93 0.008 250);
+  --panel: oklch(0.235 0.016 265);
+  --primary: oklch(0.78 0.16 75);
+  --signal-amber: oklch(0.79 0.155 75);
+  --signal-green: oklch(0.65 0.16 148);
+  --signal-red: oklch(0.6 0.22 25);
+  --signal-blue: oklch(0.62 0.16 250);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}

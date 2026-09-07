@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-surface-sunken: var(--bg-surface-sunken);
+  --color-border-default: var(--border-default);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-brand: var(--brand-primary);
+  --color-brand-hover: var(--brand-primary-hover);
+  --color-critical: var(--status-critical);
+  --color-warning: var(--status-warning);
+  --color-warning-bg: var(--status-warning-bg);
+  --color-info: var(--status-info);
+  --color-success: var(--status-success);
+
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+:root {
+  --bg-canvas: #F5F6F8;
+  --bg-surface: #FFFFFF;
+  --bg-surface-sunken: #EDEFF2;
+  --border-default: #D3D7DC;
+  --text-primary: #1B1F24;
+  --text-secondary: #5B6470;
+  --brand-primary: #0B3C6B;
+  --brand-primary-hover: #0A335A;
+  --status-critical: #B3261E;
+  --status-warning: #8A5A00;
+  --status-warning-bg: #FCEFC7;
+  --status-info: #0B5FA5;
+  --status-success: #1E7A34;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular numerals for all data */
+.num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Scrollbar — minimal */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}

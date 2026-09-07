@@ -1,0 +1,9 @@
+_pycache_/
+*.pyc
+*.pyo
+*.pyd
+overrun_risk_encoder.joblib
+overrun_risk_random_forest.joblib
+encoder.joblib
+random_forest.joblib
+data/**

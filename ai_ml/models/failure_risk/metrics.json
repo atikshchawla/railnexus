@@ -1,0 +1,156 @@
+{
+  "primary_model": "random_forest",
+  "train_size": 29915,
+  "test_size": 15531,
+  "train_date_range": [
+    "2022-02-16 00:00:00",
+    "2025-10-04 00:00:00"
+  ],
+  "test_date_range": [
+    "2025-10-05 00:00:00",
+    "2026-08-27 00:00:00"
+  ],
+  "scale_pos_weight": 26.7762,
+  "results": {
+    "random_forest": {
+      "roc_auc": 0.8618,
+      "average_precision": 0.3246,
+      "brier_score": 0.1185,
+      "precision_at_top20pct": 0.1974,
+      "base_rate": 0.0538,
+      "n_samples": 15531,
+      "top_features": [
+        {
+          "feature": "numeric__tonnage_since_last_maintenance_mgt",
+          "importance": 0.2034
+        },
+        {
+          "feature": "numeric__inspection_score",
+          "importance": 0.1735
+        },
+        {
+          "feature": "numeric__days_since_last_maintenance",
+          "importance": 0.1309
+        },
+        {
+          "feature": "numeric__lifetime_tonnage_mgt",
+          "importance": 0.1041
+        },
+        {
+          "feature": "numeric__asset_age_days",
+          "importance": 0.0871
+        },
+        {
+          "feature": "numeric__daily_tonnage_mgt",
+          "importance": 0.0421
+        },
+        {
+          "feature": "categorical__asset_type_OHE_MAST",
+          "importance": 0.0326
+        },
+        {
+          "feature": "numeric__max_wind_speed_kmh",
+          "importance": 0.0303
+        },
+        {
+          "feature": "categorical__department_TRD",
+          "importance": 0.03
+        },
+        {
+          "feature": "numeric__daily_train_count",
+          "importance": 0.0289
+        },
+        {
+          "feature": "numeric__temperature_mean_c",
+          "importance": 0.0282
+        },
+        {
+          "feature": "categorical__asset_type_WELD",
+          "importance": 0.0279
+        },
+        {
+          "feature": "numeric__rainfall_mm",
+          "importance": 0.0218
+        },
+        {
+          "feature": "categorical__asset_type_TRACK_CIRCUIT",
+          "importance": 0.0155
+        },
+        {
+          "feature": "categorical__department_ENGG",
+          "importance": 0.0085
+        }
+      ]
+    },
+    "xgboost": {
+      "roc_auc": 0.8236,
+      "average_precision": 0.2584,
+      "brier_score": 0.0789,
+      "precision_at_top20pct": 0.1745,
+      "base_rate": 0.0538,
+      "n_samples": 15531,
+      "top_features": [
+        {
+          "feature": "categorical__department_TRD",
+          "importance": 0.2566
+        },
+        {
+          "feature": "categorical__asset_type_OHE_MAST",
+          "importance": 0.1685
+        },
+        {
+          "feature": "numeric__tonnage_since_last_maintenance_mgt",
+          "importance": 0.097
+        },
+        {
+          "feature": "categorical__section_id_MCN-KPD",
+          "importance": 0.0411
+        },
+        {
+          "feature": "categorical__asset_type_TRACK_CIRCUIT",
+          "importance": 0.041
+        },
+        {
+          "feature": "categorical__asset_type_WELD",
+          "importance": 0.0405
+        },
+        {
+          "feature": "numeric__days_since_last_maintenance",
+          "importance": 0.033
+        },
+        {
+          "feature": "numeric__is_heavy_rain_day",
+          "importance": 0.0286
+        },
+        {
+          "feature": "numeric__lifetime_tonnage_mgt",
+          "importance": 0.0222
+        },
+        {
+          "feature": "categorical__asset_type_POINT_MACHINE",
+          "importance": 0.0201
+        },
+        {
+          "feature": "numeric__inspection_score",
+          "importance": 0.0186
+        },
+        {
+          "feature": "numeric__max_wind_speed_kmh",
+          "importance": 0.0166
+        },
+        {
+          "feature": "numeric__daily_tonnage_mgt",
+          "importance": 0.0166
+        },
+        {
+          "feature": "numeric__rainfall_mm",
+          "importance": 0.0162
+        },
+        {
+          "feature": "categorical__section_id_GYM-AB",
+          "importance": 0.016
+        }
+      ]
+    }
+  }
+}

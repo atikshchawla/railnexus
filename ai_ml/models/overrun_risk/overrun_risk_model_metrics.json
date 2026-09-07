@@ -1,0 +1,143 @@
+{
+  "primary_model": "ensemble",
+  "train_size": 6400,
+  "test_size": 1600,
+  "train_date_range": [
+    "2022-01-01 12:49:41",
+    "2025-09-10 16:32:04"
+  ],
+  "test_date_range": [
+    "2025-09-10 18:39:05",
+    "2026-08-27 23:03:44"
+  ],
+  "results": {
+    "random_forest": {
+      "roc_auc": 0.7032,
+      "average_precision": 0.3245,
+      "brier_score": 0.2016,
+      "precision_at_top20pct": 0.3281,
+      "base_rate": 0.1613,
+      "n_samples": 1600,
+      "top_features": [
+        {
+          "feature": "inspection_score",
+          "importance": 0.1157
+        },
+        {
+          "feature": "workload_per_worker",
+          "importance": 0.1022
+        },
+        {
+          "feature": "severity_score",
+          "importance": 0.0934
+        },
+        {
+          "feature": "weather_risk",
+          "importance": 0.0686
+        },
+        {
+          "feature": "rainfall_mm",
+          "importance": 0.0583
+        },
+        {
+          "feature": "congestion_score",
+          "importance": 0.0555
+        },
+        {
+          "feature": "planned_duration_minutes",
+          "importance": 0.0546
+        },
+        {
+          "feature": "window_average_delay_minutes",
+          "importance": 0.0453
+        },
+        {
+          "feature": "window_peak_delay_minutes",
+          "importance": 0.0446
+        },
+        {
+          "feature": "current_delay_minutes",
+          "importance": 0.0439
+        },
+        {
+          "feature": "workers_required",
+          "importance": 0.0434
+        },
+        {
+          "feature": "priority_LOW",
+          "importance": 0.0326
+        }
+      ]
+    },
+    "xgboost": {
+      "roc_auc": 0.6842,
+      "average_precision": 0.2934,
+      "brier_score": 0.1345,
+      "precision_at_top20pct": 0.3031,
+      "base_rate": 0.1613,
+      "n_samples": 1600,
+      "top_features": [
+        {
+          "feature": "priority_CRITICAL",
+          "importance": 0.068
+        },
+        {
+          "feature": "priority_LOW",
+          "importance": 0.0567
+        },
+        {
+          "feature": "severity_score",
+          "importance": 0.054
+        },
+        {
+          "feature": "is_heavy_rain_day",
+          "importance": 0.0472
+        },
+        {
+          "feature": "safety_critical",
+          "importance": 0.0459
+        },
+        {
+          "feature": "priority_HIGH",
+          "importance": 0.0382
+        },
+        {
+          "feature": "rainfall_mm",
+          "importance": 0.0376
+        },
+        {
+          "feature": "workload_per_worker",
+          "importance": 0.033
+        },
+        {
+          "feature": "inspection_score",
+          "importance": 0.0318
+        },
+        {
+          "feature": "priority_MEDIUM",
+          "importance": 0.0295
+        },
+        {
+          "feature": "congestion_score",
+          "importance": 0.0288
+        },
+        {
+          "feature": "weather_risk",
+          "importance": 0.0265
+        }
+      ]
+    },
+    "ensemble": {
+      "roc_auc": 0.7009,
+      "average_precision": 0.3129,
+      "brier_score": 0.1596,
+      "precision_at_top20pct": 0.3312,
+      "base_rate": 0.1613,
+      "n_samples": 1600,
+      "weights": {
+        "random_forest": 0.6,
+        "xgboost": 0.4
+      }
+    }
+  }
+}

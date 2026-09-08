@@ -4,7 +4,9 @@ import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/layout";
 import { DateNav, BlockPlanChart, DetailPanel, ChartLegend, RegisterView } from "@/components/plan";
-import { mockStations, mockBlocks, mockTrainPaths } from "@/lib/mock-data";
+import { mockStations, mockTrainPaths } from "@/lib/mock-data";
+import { fetchBlocks, fetchConflicts } from "@/lib/api-client";
+import { useLiveSync } from "@/hooks/useLiveSync";
 import { computeConflicts, DAY_MS, HOUR_MS, clampView } from "@/lib/chart-engine";
 import type { ChartBlock, DerivedConflict } from "@/lib/types";
 
@@ -14,20 +16,13 @@ function BlockPlanPageContent() {
   const searchParams = useSearchParams();
 
   // ─── State ─────────────────────────────────────────────
-  const [blocks, setBlocks] = useState<ChartBlock[]>(() => 
-    mockBlocks.map(b => ({
-      id: b.id,
-      department: b.department,
-      km_start: b.location.kmStart,
-      km_end: b.location.kmEnd,
-      time_start: new Date(b.scheduledWindow.start).getTime() - new Date().setHours(0,0,0,0),
-      time_end: new Date(b.scheduledWindow.end).getTime() - new Date().setHours(0,0,0,0),
-      status: b.status.toLowerCase(),
-      isShadow: false,
-      label: b.description,
-      priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low"
-    }) as any)
-  );
+  const [blocks, setBlocks] = useState<ChartBlock[]>([]);
+  const [conflicts, setConflicts] = useState<DerivedConflict[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [viewStart, setViewStart] = useState(0);
   const [viewEnd, setViewEnd] = useState(DAY_MS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -39,11 +34,60 @@ function BlockPlanPageContent() {
     return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) * 1000;
   });
 
-  // ─── Derived conflicts (computed, never stored) ─────────
-  const conflicts: DerivedConflict[] = useMemo(
-    () => computeConflicts(blocks, mockTrainPaths),
-    [blocks]
-  );
+  // Fetch initial data
+  const loadData = useCallback(async () => {
+    try {
+      const [blocksData, conflictsData] = await Promise.all([
+        fetchBlocks(),
+        fetchConflicts()
+      ]);
+      
+      setBlocks(blocksData.map((b: any) => ({
+        id: b.id,
+        department: b.department,
+        category: b.category,
+        description: b.description,
+        label: b.description,
+        km_start: b.location.kmStart,
+        km_end: b.location.kmEnd,
+        time_start: new Date(b.scheduledWindow.start).getTime() - new Date().setHours(0,0,0,0),
+        time_end: new Date(b.scheduledWindow.end).getTime() - new Date().setHours(0,0,0,0),
+        status: b.status.toLowerCase(),
+        priorityTier: b.urgency?.tier || "routine",
+        isShadow: false,
+      })));
+      
+      setConflicts(conflictsData.map((c: any) => ({
+        id: c.id,
+        blockId: c.blockAId,
+        otherBlockId: c.blockBId,
+        trainId: c.trainId,
+        km_start: 0, // Simplified for demo
+        km_end: 0,
+        time_start: new Date(c.windowStart).getTime() - new Date().setHours(0,0,0,0),
+        time_end: new Date(c.windowStart).getTime() - new Date().setHours(0,0,0,0) + 3600000,
+        overlapMinutes: 60,
+        intersectionKm: 240,
+        intersectionTime: new Date(c.windowStart).getTime() - new Date().setHours(0,0,0,0),
+        priorityTier: "critical",
+        affectedBlockDesc: c.overlapDescription,
+        candidate_resolutions: c.resolution ? [c.resolution.action] : []
+      })));
+    } catch (e) {
+      console.error("Failed to fetch", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Handle live updates
+  const { lastSynced, status: syncStatus } = useLiveSync(useCallback((type: string, payload: any) => {
+    console.log("Live update:", type, payload);
+    // Reload everything on any change for simplicity in this demo
+    loadData();
+  }, [loadData]));
 
   // ─── NOW line — recompute every 30 seconds ─────────────
   useEffect(() => {
@@ -209,21 +253,23 @@ function BlockPlanPageContent() {
         {/* ─── Main area: Chart/Register + Detail Panel ────── */}
         <div className="flex-1 flex min-h-0">
           {viewMode === "chart" ? (
-            <div className="flex-1 min-w-0 p-3">
-              <BlockPlanChart
-                stations={mockStations}
-                blocks={blocks}
-                trains={mockTrainPaths}
-                conflicts={conflicts}
-                viewStart={viewStart}
-                viewEnd={viewEnd}
-                onViewChange={handleViewChange}
-                selectedId={selectedId}
-                onSelect={handleSelect}
-                stationFilter={stationFilter}
-                onStationFilter={setStationFilter}
-                nowMs={nowMs}
-              />
+            <div className="flex-1 min-w-0 p-3 bg-surface rounded-xl border border-white/5 relative overflow-hidden flex flex-col shadow-inner">
+              {isMounted && (
+                <BlockPlanChart
+                  stations={mockStations}
+                  blocks={blocks}
+                  trains={mockTrainPaths}
+                  conflicts={conflicts}
+                  viewStart={viewStart}
+                  viewEnd={viewEnd}
+                  onViewChange={handleViewChange}
+                  selectedId={selectedId}
+                  onSelect={handleSelect}
+                  stationFilter={stationFilter}
+                  onStationFilter={setStationFilter}
+                  nowMs={nowMs}
+                />
+              )}
             </div>
           ) : (
             <RegisterView

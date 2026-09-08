@@ -1,0 +1,434 @@
+{
+  "primary_predictor": "planned_duration",
+  "primary_ml_model": "xgboost",
+  "target": "actual_duration_minutes",
+  "features": [
+    "planned_duration_minutes",
+    "severity_score",
+    "inspection_score",
+    "workers_required",
+    "equipment_count",
+    "workload_per_worker",
+    "weather_risk",
+    "rainfall_mm",
+    "temperature_mean_c",
+    "max_wind_speed_kmh",
+    "congestion_score",
+    "current_delay_minutes",
+    "window_average_delay_minutes",
+    "window_peak_delay_minutes",
+    "daily_train_count",
+    "daily_tonnage_mgt",
+    "accumulated_tonnage_mgt",
+    "trains_in_section",
+    "section_complexity",
+    "traffic_density",
+    "safety_critical",
+    "is_heavy_rain_day",
+    "is_heatwave_day",
+    "is_rain_day",
+    "request_hour",
+    "request_day_of_week",
+    "request_month",
+    "request_is_weekend",
+    "asset_type",
+    "department",
+    "section_id",
+    "work_type",
+    "priority"
+  ],
+  "split": {
+    "train_fraction": 0.6,
+    "validation_fraction": 0.2,
+    "test_fraction": 0.2
+  },
+  "train_size": 4800,
+  "validation_size": 1600,
+  "test_size": 1600,
+  "validation_results": {
+    "random_forest": {
+      "mae": 8.8087,
+      "rmse": 11.8516,
+      "r2": 0.9267
+    },
+    "xgboost": {
+      "mae": 7.2351,
+      "rmse": 9.8153,
+      "r2": 0.9497
+    },
+    "planned_duration": {
+      "mae": 6.4969,
+      "rmse": 10.6833,
+      "r2": 0.9405
+    },
+    "work_type_median": {
+      "mae": 17.9652,
+      "rmse": 23.1051,
+      "r2": 0.7215
+    }
+  },
+  "test_results": {
+    "random_forest": {
+      "mae": 8.3845,
+      "rmse": 11.3365,
+      "r2": 0.9332
+    },
+    "xgboost": {
+      "mae": 7.4457,
+      "rmse": 9.7822,
+      "r2": 0.9503
+    },
+    "planned_duration": {
+      "mae": 5.9908,
+      "rmse": 9.9542,
+      "r2": 0.9485
+    },
+    "work_type_median": {
+      "mae": 18.0775,
+      "rmse": 23.0429,
+      "r2": 0.724
+    }
+  },
+  "prediction_interval": {
+    "method": "symmetric absolute validation residual quantile",
+    "quantile": 0.9,
+    "half_width_minutes": 21.533,
+    "test_coverage": 0.9113
+  },
+  "subgroup_results": {
+    "department": {
+      "ENGG": {
+        "mae": 5.1447,
+        "rmse": 9.2163,
+        "r2": 0.9683,
+        "n": 32
+      },
+      "S&T": {
+        "mae": 5.3163,
+        "rmse": 7.9725,
+        "r2": 0.9832,
+        "n": 8
+      },
+      "TRD": {
+        "mae": 6.0116,
+        "rmse": 9.9779,
+        "r2": 0.9475,
+        "n": 1560
+      }
+    },
+    "work_type": {
+      "BALLAST_REPAIR": {
+        "mae": 5.4883,
+        "rmse": 10.1854,
+        "r2": 0.8915,
+        "n": 6
+      },
+      "CATENARY_MAINTENANCE": {
+        "mae": 7.4584,
+        "rmse": 11.341,
+        "r2": 0.8645,
+        "n": 314
+      },
+      "INSULATOR_REPLACEMENT": {
+        "mae": 5.5134,
+        "rmse": 9.2941,
+        "r2": 0.7194,
+        "n": 333
+      },
+      "OHE_INSPECTION": {
+        "mae": 5.0668,
+        "rmse": 9.2915,
+        "r2": 0.6773,
+        "n": 305
+      },
+      "OHE_MAST_MAINTENANCE": {
+        "mae": 5.7512,
+        "rmse": 9.812,
+        "r2": 0.7859,
+        "n": 300
+      },
+      "OHE_WIRE_REPAIR": {
+        "mae": 6.2644,
+        "rmse": 10.0238,
+        "r2": 0.8492,
+        "n": 308
+      },
+      "RAIL_REPLACEMENT": {
+        "mae": 12.385,
+        "rmse": 14.1203,
+        "r2": 0.6036,
+        "n": 6
+      },
+      "SLEEPER_REPLACEMENT": {
+        "mae": 2.0883,
+        "rmse": 2.7226,
+        "r2": 0.9609,
+        "n": 6
+      },
+      "TRACK_GEOMETRY_CORRECTION": {
+        "mae": 8.8857,
+        "rmse": 13.6313,
+        "r2": 0.7919,
+        "n": 7
+      },
+      "TRACK_INSPECTION": {
+        "mae": 1.3867,
+        "rmse": 1.4612,
+        "r2": 0.9736,
+        "n": 6
+      },
+      "WELD_REPAIR": {
+        "mae": 1.8744,
+        "rmse": 2.3528,
+        "r2": 0.9831,
+        "n": 9
+      }
+    },
+    "priority": {
+      "CRITICAL": {
+        "mae": 8.7815,
+        "rmse": 13.2192,
+        "r2": 0.9281,
+        "n": 137
+      },
+      "HIGH": {
+        "mae": 6.2537,
+        "rmse": 10.33,
+        "r2": 0.9442,
+        "n": 534
+      },
+      "LOW": {
+        "mae": 4.7425,
+        "rmse": 8.0374,
+        "r2": 0.9605,
+        "n": 224
+      },
+      "MEDIUM": {
+        "mae": 5.6459,
+        "rmse": 9.464,
+        "r2": 0.9493,
+        "n": 705
+      }
+    },
+    "section_id": {
+      "AB-VN": {
+        "mae": 5.966,
+        "rmse": 10.165,
+        "r2": 0.9444,
+        "n": 203
+      },
+      "AJJ-SHU": {
+        "mae": 5.4611,
+        "rmse": 9.1199,
+        "r2": 0.9561,
+        "n": 216
+      },
+      "GYM-AB": {
+        "mae": 6.1365,
+        "rmse": 10.0563,
+        "r2": 0.9454,
+        "n": 278
+      },
+      "KPD-GYM": {
+        "mae": 6.1349,
+        "rmse": 10.0769,
+        "r2": 0.9552,
+        "n": 291
+      },
+      "MCN-KPD": {
+        "mae": 5.8545,
+        "rmse": 10.0621,
+        "r2": 0.9465,
+        "n": 193
+      },
+      "SHU-WJR": {
+        "mae": 6.8231,
+        "rmse": 11.1149,
+        "r2": 0.9362,
+        "n": 170
+      },
+      "VN-JTJ": {
+        "mae": 5.3974,
+        "rmse": 9.0058,
+        "r2": 0.9505,
+        "n": 168
+      },
+      "WJR-MCN": {
+        "mae": 6.2564,
+        "rmse": 9.7919,
+        "r2": 0.9338,
+        "n": 81
+      }
+    },
+    "overrun_group": {
+      "not_overrun": {
+        "mae": 2.8543,
+        "rmse": 3.6256,
+        "r2": 0.9923,
+        "n": 1342
+      },
+      "overrun": {
+        "mae": 22.3052,
+        "rmse": 23.3691,
+        "r2": 0.7498,
+        "n": 258
+      }
+    }
+  },
+  "top_features": {
+    "random_forest": [
+      {
+        "feature": "numeric__planned_duration_minutes",
+        "importance": 0.4173
+      },
+      {
+        "feature": "categorical__work_type_CATENARY_MAINTENANCE",
+        "importance": 0.1713
+      },
+      {
+        "feature": "numeric__workload_per_worker",
+        "importance": 0.0895
+      },
+      {
+        "feature": "categorical__work_type_OHE_INSPECTION",
+        "importance": 0.0781
+      },
+      {
+        "feature": "categorical__work_type_INSULATOR_REPLACEMENT",
+        "importance": 0.0456
+      },
+      {
+        "feature": "numeric__section_complexity",
+        "importance": 0.0403
+      },
+      {
+        "feature": "categorical__work_type_OHE_WIRE_REPAIR",
+        "importance": 0.0352
+      },
+      {
+        "feature": "categorical__work_type_OHE_MAST_MAINTENANCE",
+        "importance": 0.0167
+      },
+      {
+        "feature": "numeric__workers_required",
+        "importance": 0.0135
+      },
+      {
+        "feature": "numeric__safety_critical",
+        "importance": 0.0063
+      },
+      {
+        "feature": "categorical__priority_HIGH",
+        "importance": 0.0057
+      },
+      {
+        "feature": "categorical__work_type_TRACK_INSPECTION",
+        "importance": 0.0048
+      },
+      {
+        "feature": "categorical__priority_LOW",
+        "importance": 0.0048
+      },
+      {
+        "feature": "numeric__inspection_score",
+        "importance": 0.0039
+      },
+      {
+        "feature": "numeric__weather_risk",
+        "importance": 0.0035
+      }
+    ],
+    "xgboost": [
+      {
+        "feature": "categorical__work_type_CATENARY_MAINTENANCE",
+        "importance": 0.2917
+      },
+      {
+        "feature": "numeric__planned_duration_minutes",
+        "importance": 0.2905
+      },
+      {
+        "feature": "categorical__work_type_OHE_WIRE_REPAIR",
+        "importance": 0.1314
+      },
+      {
+        "feature": "categorical__work_type_RAIL_REPLACEMENT",
+        "importance": 0.1081
+      },
+      {
+        "feature": "categorical__work_type_TRACK_GEOMETRY_CORRECTION",
+        "importance": 0.0337
+      },
+      {
+        "feature": "categorical__work_type_OHE_MAST_MAINTENANCE",
+        "importance": 0.0235
+      },
+      {
+        "feature": "categorical__priority_LOW",
+        "importance": 0.0084
+      },
+      {
+        "feature": "categorical__work_type_SLEEPER_REPLACEMENT",
+        "importance": 0.0075
+      },
+      {
+        "feature": "categorical__priority_CRITICAL",
+        "importance": 0.0062
+      },
+      {
+        "feature": "numeric__section_complexity",
+        "importance": 0.0054
+      },
+      {
+        "feature": "categorical__work_type_TRACK_INSPECTION",
+        "importance": 0.0053
+      },
+      {
+        "feature": "categorical__priority_HIGH",
+        "importance": 0.0048
+      },
+      {
+        "feature": "categorical__department_ENGG",
+        "importance": 0.0047
+      },
+      {
+        "feature": "numeric__safety_critical",
+        "importance": 0.0046
+      },
+      {
+        "feature": "categorical__priority_MEDIUM",
+        "importance": 0.0046
+      }
+    ]
+  },
+  "data_quality": {
+    "record_count": 8000,
+    "date_range": [
+      "2022-01-01 12:49:41",
+      "2026-08-27 23:03:44"
+    ],
+    "target_range_minutes": [
+      51.16,
+      326.07
+    ],
+    "department_counts": {
+      "TRD": 7707,
+      "ENGG": 245,
+      "S&T": 48
+    },
+    "work_type_counts": {
+      "CATENARY_MAINTENANCE": 1575,
+      "INSULATOR_REPLACEMENT": 1573,
+      "OHE_MAST_MAINTENANCE": 1539,
+      "OHE_INSPECTION": 1512,
+      "OHE_WIRE_REPAIR": 1508,
+      "WELD_REPAIR": 56,
+      "RAIL_REPLACEMENT": 52,
+      "BALLAST_REPAIR": 47,
+      "TRACK_INSPECTION": 47,
+      "SLEEPER_REPLACEMENT": 46,
+      "TRACK_GEOMETRY_CORRECTION": 45
+    },
+    "missing_values": {}
+  }
+}

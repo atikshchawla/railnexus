@@ -1,0 +1,30 @@
+{
+  "numeric_features": [
+    "planned_duration_minutes",
+    "planned_start_hour",
+    "daily_train_count",
+    "daily_tonnage_mgt",
+    "congestion_score",
+    "current_delay_minutes",
+    "window_average_delay_minutes",
+    "window_peak_delay_minutes",
+    "weather_risk",
+    "rainfall_mm",
+    "is_heavy_rain_day",
+    "trains_in_section",
+    "traffic_density",
+    "safety_critical"
+  ],
+  "categorical_features": [
+    "section_id",
+    "department",
+    "work_type",
+    "priority",
+    "asset_type"
+  ],
+  "targets": [
+    "trains_affected",
+    "total_delay_minutes"
+  ],
+  "request_time_only": true
+}

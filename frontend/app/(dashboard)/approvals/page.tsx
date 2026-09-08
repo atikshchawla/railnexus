@@ -2,256 +2,215 @@
 
 import { useState } from "react";
 import { TopBar } from "@/components/layout";
-import { SearchBar, Pagination, ProvenanceBadge } from "@/components/shared";
-import { mockBlockRequests } from "@/lib/mock-data";
+import { Pagination } from "@/components/shared";
+import { mockBlocks } from "@/lib/mock-data";
+import { isBatchEligible } from "@/lib/rules";
 import {
-  Filter,
-  ThumbsUp,
-  ThumbsDown,
-  SlidersHorizontal,
-  CheckSquare,
-  Square,
-  Eye,
-  AlertTriangle,
-} from "lucide-react";
+  DepartmentBadge,
+  UrgencyText,
+  UrgencyBorder,
+  ConflictIndicator,
+  StatusPill,
+  AcronymLegend,
+  ConfidenceDisplay,
+} from "@/components/shared";
+import { Filter, CheckSquare, Settings2, XSquare, Eye } from "lucide-react";
+import Link from "next/link";
+import type { BlockRecord } from "@/lib/types";
 
-const categoryStyle: Record<string, string> = {
-  IMR: "text-critical bg-critical/8",
-  OBS: "text-warning bg-warning-bg",
-  PM: "text-info bg-info/8",
-};
-
-const urgencyStyle: Record<string, string> = {
-  critical: "text-critical font-semibold",
-  high: "text-warning font-medium",
-  medium: "text-text-primary",
-  low: "text-text-secondary",
-};
-
-type Horizon = "all" | "today" | "week" | "month";
 const PAGE_SIZE = 10;
 
 export default function ApprovalsPage() {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [search, setSearch] = useState("");
-  const [deptFilter, setDeptFilter] = useState("All");
-  const [horizon, setHorizon] = useState<Horizon>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
+  const [deptFilter, setDeptFilter] = useState("All");
 
-  const filtered = mockBlockRequests.filter((r) => {
-    if (deptFilter !== "All" && r.department !== deptFilter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return (
-        r.id.toLowerCase().includes(q) ||
-        r.description.toLowerCase().includes(q) ||
-        r.section.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const pendingApprovals = mockBlocks.filter(b => b.status === "Under review" || b.status === "Submitted")
+    .sort((a, b) => {
+      // Sort by urgency
+      const aVal = a.urgency.timeToBreachHours ?? Number.MAX_SAFE_INTEGER;
+      const bVal = b.urgency.timeToBreachHours ?? Number.MAX_SAFE_INTEGER;
+      return aVal - bVal;
+    });
 
+  const filtered = pendingApprovals.filter(b => deptFilter === "All" || b.department === deptFilter);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
   };
 
-  const toggleAll = () => {
-    if (selected.size === paged.length) setSelected(new Set());
-    else setSelected(new Set(paged.map((r) => r.id)));
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filtered.map(i => i.id)));
   };
 
-  const selectedPending = paged.filter(
-    (r) => selected.has(r.id) && r.status === "Under review"
-  );
+  const selectedCount = selectedIds.size;
+  
+  // Calculate eligible count from selection
+  let eligibleCount = 0;
+  let ineligibleCount = 0;
+  selectedIds.forEach(id => {
+    const item = pendingApprovals.find(b => b.id === id);
+    if (item && isBatchEligible(item)) {
+      eligibleCount++;
+    } else {
+      ineligibleCount++;
+    }
+  });
+
+  const handleAction = (id: string, action: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    alert(`Audit Log: ${action} on ${id}. Timestamp: ${new Date().toISOString()}`);
+  };
 
   return (
     <>
       <TopBar
-        title="Approvals"
-        subtitle={`${filtered.filter((r) => r.status === "Under review").length} pending review`}
+        title="Pending approvals"
+        subtitle="Review and approve proposed block windows"
       />
-      <div className="flex-1 p-5 space-y-4 overflow-y-auto">
-        {/* Toolbar */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="w-64">
-            <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} />
-          </div>
-
-          {/* Horizon filter */}
-          <div className="flex bg-surface-sunken border border-border-default">
-            {(
-              [
-                ["all", "All"],
-                ["today", "Today"],
-                ["week", "This week"],
-                ["month", "This month"],
-              ] as [Horizon, string][]
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => { setHorizon(key); setPage(1); }}
-                className={`px-3 py-1 text-[11px] font-medium transition-colors ${
-                  horizon === key
-                    ? "bg-brand text-white"
-                    : "text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <select
-            value={deptFilter}
-            onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
-            className="text-[12.5px] px-2 py-1.5 border border-border-default bg-surface text-text-primary"
-          >
-            <option value="All">All departments</option>
-            <option value="Engg">Engg</option>
-            <option value="TRD">TRD</option>
-            <option value="S&T">S&T</option>
-          </select>
-        </div>
-
-        {/* Bulk-action bar (visible when ≥1 row selected) */}
-        {selected.size > 0 && (
-          <div className="flex items-center gap-3 px-4 py-2 bg-brand/5 border border-brand/20">
-            <span className="text-[12.5px] font-medium text-brand">
-              {selected.size} selected
+      
+      {selectedCount > 0 && (
+        <div className="bg-surface-sunken border-b border-border-default px-5 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="text-[13px] font-medium text-text-primary">
+              {selectedCount} selected 
+              {ineligibleCount > 0 && (
+                <span className="text-text-secondary ml-1 font-normal">
+                  — {eligibleCount} eligible for batch approval ({ineligibleCount} has an unresolved conflict)
+                </span>
+              )}
             </span>
-            {selectedPending.length > 0 && (
-              <>
-                <button className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors">
-                  <ThumbsUp size={12} strokeWidth={2} />
-                  Batch approve ({selectedPending.length})
-                </button>
-                <button className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium border border-critical/30 text-critical hover:bg-critical/5 transition-colors">
-                  <ThumbsDown size={12} strokeWidth={2} />
-                  Batch reject
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => setSelected(new Set())}
-              className="ml-auto text-[11px] text-text-secondary hover:text-text-primary"
+          </div>
+          <div className="flex gap-2">
+            <button className="px-4 py-2 text-[12.5px] font-medium border border-border-default text-text-primary bg-surface hover:bg-surface-sunken transition-colors">
+              Reject ({selectedCount})
+            </button>
+            <button 
+              disabled={eligibleCount === 0}
+              className="px-4 py-2 text-[12.5px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Clear selection
+              Batch approve ({eligibleCount})
             </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Table */}
-        <div className="bg-surface border border-border-default overflow-x-auto">
+      <div className="flex-1 p-5 space-y-4 overflow-y-auto bg-canvas">
+        <AcronymLegend />
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[13px]">
+            <Filter size={14} className="text-text-secondary" />
+            <select
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+              className="bg-transparent border-none text-text-primary font-medium focus:ring-0 cursor-pointer"
+            >
+              <option value="All">All Departments</option>
+              <option value="Engg">Engineering</option>
+              <option value="TRD">TRD</option>
+              <option value="S&T">S&T</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="bg-surface border border-border-default overflow-hidden">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="bg-surface-sunken text-text-secondary text-left">
-                <th className="px-3 py-2 w-8">
-                  <button onClick={toggleAll}>
-                    {selected.size === paged.length && paged.length > 0 ? (
-                      <CheckSquare size={14} strokeWidth={1.75} />
-                    ) : (
-                      <Square size={14} strokeWidth={1.75} />
-                    )}
-                  </button>
+              <tr className="bg-surface-sunken text-text-secondary text-left uppercase tracking-wider text-[10px]">
+                <th scope="col" className="px-4 py-2.5 w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedCount === filtered.length && filtered.length > 0}
+                    onChange={toggleSelectAll}
+                    className="rounded-sm border-border-default text-brand focus:ring-brand"
+                  />
                 </th>
-                <th className="px-3 py-2 font-medium">Category</th>
-                <th className="px-3 py-2 font-medium">Block ID</th>
-                <th className="px-3 py-2 font-medium">Dept</th>
-                <th className="px-3 py-2 font-medium">Description</th>
-                <th className="px-3 py-2 font-medium">Section</th>
-                <th className="px-3 py-2 font-medium">Date / Time</th>
-                <th className="px-3 py-2 font-medium">Urgency</th>
-                <th className="px-3 py-2 font-medium">Confidence</th>
-                <th className="px-3 py-2 font-medium">Conflict</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 font-medium">Source</th>
-                <th className="px-3 py-2 font-medium text-right">Actions</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">ID</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Dept</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Description</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Schedule</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Urgency</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">Confidence</th>
+                <th scope="col" className="px-4 py-2.5 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default">
-              {paged.map((req) => (
-                <tr
-                  key={req.id}
-                  className={`hover:bg-surface-sunken/50 transition-colors ${selected.has(req.id) ? "bg-brand/3" : ""}`}
-                >
-                  <td className="px-3 py-2">
-                    <button onClick={() => toggleSelect(req.id)}>
-                      {selected.has(req.id) ? (
-                        <CheckSquare size={14} strokeWidth={1.75} className="text-brand" />
-                      ) : (
-                        <Square size={14} strokeWidth={1.75} />
+              {paged.map((item) => {
+                const isSelected = selectedIds.has(item.id);
+                const eligible = isBatchEligible(item);
+                const breachText = item.urgency.timeToBreachHours === null 
+                  ? "Routine" 
+                  : `${Math.ceil(item.urgency.timeToBreachHours / 24)} days`;
+
+                return (
+                  <tr
+                    key={item.id}
+                    className={`transition-colors relative group ${isSelected ? "bg-surface-sunken" : "hover:bg-surface-sunken/50"}`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center h-full relative">
+                        <UrgencyBorder tier={item.urgency.tier} className="absolute left-0 w-full h-full -ml-4 pl-4 pointer-events-none opacity-80" />
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={!eligible}
+                          title={!eligible ? "Has unresolved conflict — resolve in Conflicts before batch action." : undefined}
+                          onChange={() => toggleSelect(item.id)}
+                          className={`rounded-sm border-border-default text-brand focus:ring-brand z-10 relative ${!eligible ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 num font-medium text-[12px]">
+                      {item.id}
+                      {!eligible && (
+                        <div className="mt-1">
+                          <ConflictIndicator conflictId={item.conflict?.conflictId} />
+                        </div>
                       )}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={`inline-block text-[11px] font-semibold px-1.5 py-0.5 ${categoryStyle[req.category]}`}>
-                      {req.category}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 num font-medium">{req.id}</td>
-                  <td className="px-3 py-2 text-text-secondary">{req.department}</td>
-                  <td className="px-3 py-2 max-w-[180px] truncate">{req.description}</td>
-                  <td className="px-3 py-2 num text-[12px]">{req.section}</td>
-                  <td className="px-3 py-2 text-[12px] whitespace-nowrap">
-                    <div>{req.scheduledDate}</div>
-                    <div className="text-text-secondary">{req.scheduledTime}</div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={`text-[12px] ${urgencyStyle[req.urgency.level]}`}>
-                      {req.urgency.deadline}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-10 h-1.5 bg-surface-sunken overflow-hidden">
-                        <div className="h-full bg-brand" style={{ width: `${req.confidence}%` }} />
-                      </div>
-                      <span className="num text-[11px]">{req.confidence}%</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    {req.hasConflict ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-critical font-medium">
-                        <AlertTriangle size={11} strokeWidth={2} />
-                        Yes
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-text-secondary">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-[12px] text-text-secondary">{req.status}</td>
-                  <td className="px-3 py-2">
-                    <ProvenanceBadge provenance={req.provenance} />
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    {req.status === "Under review" ? (
-                      <div className="flex items-center justify-end gap-1">
-                        <button className="p-1 rounded hover:bg-surface-sunken" title="View in plan">
-                          <Eye size={14} strokeWidth={1.75} className="text-text-secondary" />
+                    </td>
+                    <td className="px-4 py-3"><DepartmentBadge dept={item.department} /></td>
+                    <td className="px-4 py-3 max-w-[200px] truncate text-text-primary">
+                      {item.description}
+                      <div className="text-[11px] text-text-secondary mt-0.5">Km {item.location.kmStart} ({item.location.line})</div>
+                    </td>
+                    <td className="px-4 py-3 text-[12px] whitespace-nowrap text-text-primary font-medium">
+                      {new Date(item.scheduledWindow.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} – {new Date(item.scheduledWindow.end).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                    </td>
+                    <td className="px-4 py-3">
+                      <UrgencyText tier={item.urgency.tier} text={breachText} />
+                    </td>
+                    <td className="px-4 py-3 max-w-[250px]">
+                      {item.aiSuggestion ? (
+                        <ConfidenceDisplay aiSuggestion={item.aiSuggestion} />
+                      ) : (
+                        <span className="text-[11px] text-text-secondary italic">Manual submission</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1 flex-nowrap">
+                        <Link href={`/plan?focus=${item.id}`} className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-border-default text-text-primary hover:bg-surface-sunken transition-colors bg-surface whitespace-nowrap text-[11.5px] font-medium">
+                          <Eye size={13} strokeWidth={2} /> View
+                        </Link>
+                        <button onClick={(e) => handleAction(item.id, "Adjust", e)} className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-border-default text-text-primary hover:bg-surface-sunken transition-colors bg-surface whitespace-nowrap text-[11.5px] font-medium">
+                          <Settings2 size={13} strokeWidth={2} /> Adjust
                         </button>
-                        <button className="p-1 rounded hover:bg-success/10" title="Approve">
-                          <ThumbsUp size={14} strokeWidth={1.75} className="text-success" />
+                        <button onClick={(e) => handleAction(item.id, "Reject", e)} className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-border-default text-critical hover:bg-critical/5 transition-colors bg-surface whitespace-nowrap text-[11.5px] font-medium">
+                          <XSquare size={13} strokeWidth={2} /> Reject
                         </button>
-                        <button className="p-1 rounded hover:bg-brand/10" title="Adjust timing">
-                          <SlidersHorizontal size={14} strokeWidth={1.75} className="text-brand" />
-                        </button>
-                        <button className="p-1 rounded hover:bg-critical/10" title="Reject">
-                          <ThumbsDown size={14} strokeWidth={1.75} className="text-critical" />
+                        <button onClick={(e) => handleAction(item.id, "Approve", e)} className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-brand text-white hover:bg-brand-hover transition-colors whitespace-nowrap text-[11.5px] font-medium">
+                          <CheckSquare size={13} strokeWidth={2} /> Approve
                         </button>
                       </div>
-                    ) : (
-                      <span className="text-[11px] text-text-secondary">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <Pagination

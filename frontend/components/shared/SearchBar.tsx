@@ -14,7 +14,7 @@ export default function SearchBar({
   placeholder = "Search by ID, description, or section...",
 }: SearchBarProps) {
   return (
-    <div className="relative">
+    <div role="search" className="relative">
       <Search
         size={14}
         strokeWidth={1.75}

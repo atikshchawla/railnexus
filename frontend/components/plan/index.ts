@@ -1,4 +1,5 @@
 export { default as DateNav } from "./DateNav";
-export { default as DayTimeline } from "./DayTimeline";
-export { default as WeekView } from "./WeekView";
-export { default as MonthView } from "./MonthView";
+export { default as BlockPlanChart } from "./BlockPlanChart";
+export { default as DetailPanel } from "./DetailPanel";
+export { default as ChartLegend } from "./ChartLegend";
+export { default as RegisterView } from "./RegisterView";

@@ -1,308 +1,222 @@
-import type {
-  BacklogItem,
-  BlockRequest,
-  AiSuggestion,
-  Conflict,
-  TrainPath,
-  TimelineBlock,
-} from "./types";
+import type { BlockRecord, ConflictRecord, AnalyticsMetric, Station, TrainPath } from "./types";
 
-/**
- * All mock data uses the corrected data model:
- * - Category (IMR/OBS/PM) — from source system
- * - Urgency — AI-computed, separate field
- * - Status — workflow state, separate field
- * - Provenance — source system + sync time
- */
+const TODAY_BASE = new Date().toISOString().split("T")[0]; // e.g. "2026-09-09"
 
-// ─── Maintenance backlog (auto-populated from TMS/SMMS/TDMS) ─────────
-
-export const mockBacklog: BacklogItem[] = [
-  {
-    id: "DEF-4521",
-    category: "IMR",
-    urgency: { score: 95, deadline: "2 days to SLA breach", level: "critical" },
-    status: "Under review",
-    department: "Engg",
-    description: "Rail fracture detected at Km 245/3 — urgent repair required",
-    location: "Km 245/3, UP",
-    provenance: { system: "TMS", lastSynced: "2m ago" },
-    hasConflict: true,
-    conflictWith: "BLK-4520 (S&T)",
-  },
-  {
-    id: "DEF-4520",
-    category: "OBS",
-    urgency: { score: 45, deadline: "Routine patrol finding", level: "medium" },
-    status: "Submitted",
-    department: "Engg",
-    description: "Weld defect observed during routine patrol",
-    location: "Km 248/1, UP",
-    provenance: { system: "TMS", lastSynced: "15m ago" },
-    hasConflict: false,
-  },
-  {
-    id: "DEF-4519",
-    category: "PM",
-    urgency: { score: 60, deadline: "14 days to predicted failure", level: "high" },
-    status: "Submitted",
-    department: "S&T",
-    description: "Track circuit relay degradation — RUL prediction: 14 days",
-    location: "Km 252/7, DN",
-    provenance: { system: "SMMS", lastSynced: "8m ago" },
-    hasConflict: false,
-  },
-  {
-    id: "DEF-4518",
-    category: "IMR",
-    urgency: { score: 92, deadline: "1 day to SLA breach", level: "critical" },
-    status: "Approved",
-    department: "TRD",
-    description: "OHE dropper snapped — power block needed",
-    location: "Km 239/2, UP",
-    provenance: { system: "TDMS", lastSynced: "5m ago" },
-    hasConflict: false,
-  },
-  {
-    id: "DEF-4517",
-    category: "OBS",
-    urgency: { score: 35, deadline: "7 days remaining", level: "medium" },
-    status: "Draft",
-    department: "Engg",
-    description: "Ballast deficiency at level crossing approach",
-    location: "Km 241/5, DN",
-    provenance: { system: "TMS", lastSynced: "1h ago" },
-    hasConflict: false,
-  },
-  {
-    id: "DEF-4516",
-    category: "PM",
-    urgency: { score: 40, deadline: "21 days to predicted failure", level: "low" },
-    status: "Submitted",
-    department: "S&T",
-    description: "Signal relay response time increasing — predicted failure in 21 days",
-    location: "Km 250/0, DN",
-    provenance: { system: "TDMS", lastSynced: "12m ago" },
-    hasConflict: false,
-  },
-  {
-    id: "DEF-4515",
-    category: "OBS",
-    urgency: { score: 50, deadline: "5 days remaining", level: "medium" },
-    status: "Submitted",
-    department: "TRD",
-    description: "OHE mast foundation showing minor cracks",
-    location: "Km 238/4, UP",
-    provenance: { system: "SMMS", lastSynced: "30m ago" },
-    hasConflict: true,
-    conflictWith: "BLK-4523 (Engg)",
-  },
-  {
-    id: "DEF-4514",
-    category: "IMR",
-    urgency: { score: 88, deadline: "3 days to SLA breach", level: "critical" },
-    status: "Under review",
-    department: "Engg",
-    description: "Point machine malfunction at Km 243 junction",
-    location: "Km 243/0, UP/DN",
-    provenance: { system: "TMS", lastSynced: "1m ago" },
-    hasConflict: false,
-  },
-];
-
-// ─── Block requests (for approvals) ──────────────────────────────────
-
-export const mockBlockRequests: BlockRequest[] = [
+export const mockBlocks: BlockRecord[] = [
   {
     id: "BLK-4521",
-    category: "IMR",
-    urgency: { score: 95, deadline: "2 days to SLA breach", level: "critical" },
-    status: "Under review",
     department: "Engg",
-    description: "Rail fracture repair at Km 245/3",
-    section: "Km 244–248, UP",
-    scheduledDate: "05 Sep 2026",
-    scheduledTime: "14:00–16:00",
-    duration: "2h 00m",
-    confidence: 82,
-    shadow: "TRD OHE inspection",
-    trainsAffected: { passenger: 0, freight: 1 },
-    hasConflict: true,
-    conflictWith: "BLK-4520 (S&T, same window)",
-    provenance: { system: "TMS", lastSynced: "2m ago" },
+    category: "IMR",
+    description: "Rail fracture repair",
+    location: { kmStart: 244, kmEnd: 248, line: "UP" },
+    scheduledWindow: { start: `${TODAY_BASE}T14:00:00Z`, end: `${TODAY_BASE}T16:00:00Z` },
+    urgency: { timeToBreachHours: 18, tier: "critical" }, // < 24h
+    status: "Under review",
+    source: { system: "TMS", lastUpdated: "2m ago" },
+    conflict: { conflictId: "CONF-001", severity: "high", status: "Unresolved" },
+    aiSuggestion: {
+      confidence: 82,
+      confidenceBasis: "resolves the fracture within SLA without delaying passenger trains",
+      topFactors: [
+        "No passenger trains in window",
+        "TRD OHE inspection bundled (saves 45m)",
+        "Freight rake FRT-4422 can be held at loop"
+      ],
+      recommendedAction: "Approve as proposed"
+    },
+    auditTrail: [
+      { actor: "R. Sharma", role: "JE/PWay", timestamp: `${TODAY_BASE}T10:15:00Z`, action: "Acknowledged", agreedWithAI: null }
+    ]
   },
   {
     id: "BLK-4520",
-    category: "PM",
-    urgency: { score: 60, deadline: "14 days to predicted failure", level: "high" },
-    status: "Under review",
     department: "S&T",
-    description: "Track circuit relay replacement (predicted failure)",
-    section: "Km 250–252, DN",
-    scheduledDate: "06 Sep 2026",
-    scheduledTime: "10:00–12:30",
-    duration: "2h 30m",
-    confidence: 74,
-    shadow: null,
-    trainsAffected: { passenger: 1, freight: 1 },
-    hasConflict: false,
-    provenance: { system: "TDMS", lastSynced: "8m ago" },
+    category: "PM",
+    description: "Track circuit relay replacement",
+    location: { kmStart: 250, kmEnd: 252, line: "DN" },
+    scheduledWindow: { start: `${TODAY_BASE}T10:00:00Z`, end: `${TODAY_BASE}T12:30:00Z` },
+    urgency: { timeToBreachHours: 336, tier: "routine" }, // 14 days
+    status: "Submitted",
+    source: { system: "TDMS", lastUpdated: "8m ago" },
+    conflict: null,
+    aiSuggestion: null,
+    auditTrail: []
   },
   {
     id: "BLK-4519",
-    category: "OBS",
-    urgency: { score: 30, deadline: "Quarterly schedule", level: "low" },
-    status: "Under review",
     department: "TRD",
+    category: "OBS",
     description: "OHE mast foundation inspection",
-    section: "Km 238–241, UP",
-    scheduledDate: "06 Sep 2026",
-    scheduledTime: "11:00–13:00",
-    duration: "2h 00m",
-    confidence: 91,
-    shadow: null,
-    trainsAffected: { passenger: 0, freight: 0 },
-    hasConflict: false,
-    provenance: { system: "SMMS", lastSynced: "1h ago" },
+    location: { kmStart: 238, kmEnd: 241, line: "UP" },
+    scheduledWindow: { start: `${TODAY_BASE}T11:00:00Z`, end: `${TODAY_BASE}T13:00:00Z` },
+    urgency: { timeToBreachHours: null, tier: "routine" },
+    status: "Approved",
+    source: { system: "SMMS", lastUpdated: "1h ago" },
+    conflict: null,
+    aiSuggestion: null,
+    auditTrail: [
+      { actor: "S. Mehta", role: "SSE/TRD", timestamp: `${TODAY_BASE}T09:00:00Z`, action: "Approved", agreedWithAI: null }
+    ]
   },
   {
     id: "BLK-4518",
-    category: "IMR",
-    urgency: { score: 92, deadline: "1 day to SLA breach", level: "critical" },
-    status: "Approved",
     department: "Engg",
-    description: "OHE dropper repair — power block required",
-    section: "Km 239/2, UP",
-    scheduledDate: "05 Sep 2026",
-    scheduledTime: "08:00–09:30",
-    duration: "1h 30m",
-    confidence: 88,
-    shadow: "S&T point machine lubrication",
-    trainsAffected: { passenger: 0, freight: 1 },
-    hasConflict: false,
-    provenance: { system: "SMMS", lastSynced: "5m ago" },
+    category: "IMR",
+    description: "OHE dropper repair (power block required)",
+    location: { kmStart: 239.2, kmEnd: 239.2, line: "UP" },
+    scheduledWindow: { start: `${TODAY_BASE}T08:00:00Z`, end: `${TODAY_BASE}T09:30:00Z` },
+    urgency: { timeToBreachHours: 2, tier: "critical" },
+    status: "Active",
+    source: { system: "SMMS", lastUpdated: "5m ago" },
+    conflict: null,
+    aiSuggestion: null,
+    auditTrail: [
+      { actor: "A. Kumar", role: "AEN", timestamp: `${TODAY_BASE}T07:45:00Z`, action: "Approved", agreedWithAI: null }
+    ]
   },
   {
     id: "BLK-4517",
+    department: "Engg",
     category: "OBS",
-    urgency: { score: 35, deadline: "7 days remaining", level: "medium" },
-    status: "Under review",
-    department: "Engg",
     description: "Ballast deficiency rectification at LC approach",
-    section: "Km 241/5, DN",
-    scheduledDate: "07 Sep 2026",
-    scheduledTime: "14:00–16:00",
-    duration: "2h 00m",
-    confidence: 79,
-    shadow: null,
-    trainsAffected: { passenger: 0, freight: 1 },
-    hasConflict: true,
-    conflictWith: "BLK-4523 (TRD, Km overlap)",
-    provenance: { system: "TMS", lastSynced: "1h ago" },
-  },
-  {
-    id: "BLK-4516",
-    category: "PM",
-    urgency: { score: 25, deadline: "Scheduled maintenance", level: "low" },
+    location: { kmStart: 241.5, kmEnd: 241.5, line: "DN" },
+    scheduledWindow: { start: `${TODAY_BASE}T14:00:00Z`, end: `${TODAY_BASE}T16:00:00Z` },
+    urgency: { timeToBreachHours: 48, tier: "warning" },
     status: "Under review",
-    department: "S&T",
-    description: "Signal lamp cleaning and replacement",
-    section: "Km 243–246, UP/DN",
-    scheduledDate: "08 Sep 2026",
-    scheduledTime: "10:00–11:30",
-    duration: "1h 30m",
-    confidence: 95,
-    shadow: null,
-    trainsAffected: { passenger: 0, freight: 0 },
-    hasConflict: false,
-    provenance: { system: "TDMS", lastSynced: "20m ago" },
-  },
-];
-
-// ─── AI suggestions ──────────────────────────────────────────────────
-
-export const mockAiSuggestions: AiSuggestion[] = [
-  {
-    id: "BLK-4521",
-    summary: "Proposes a 2-hour integrated block tomorrow 14:00–16:00 between Km 244–248 UP line, combining Engg rail repair with a shadow TRD OHE inspection.",
-    constraints: [
-      { label: "Passenger train path clear", met: true, detail: "No passenger trains in window" },
-      { label: "Freight impact minimal", met: true, detail: "1 BOXN rake held 15 min at loop" },
-      { label: "Shadow opportunity merged", met: true, detail: "TRD OHE inspection bundled, saving 45 min" },
-      { label: "IMR SLA deadline met", met: true, detail: "2 days remaining, block within SLA" },
-      { label: "Cross-department conflict resolved", met: false, detail: "S&T relay work at Km 250 not yet merged" },
-    ],
-    confidence: 82,
-    section: "Km 244–248, UP line",
-    scheduledTime: "Tomorrow, 14:00–16:00",
-    department: "Engg",
-    shadowDepts: ["TRD"],
-    notifyDepts: ["TRD", "S&T"],
+    source: { system: "TMS", lastUpdated: "1h ago" },
+    conflict: { conflictId: "CONF-002", severity: "medium", status: "Unresolved" },
+    aiSuggestion: {
+      confidence: 79,
+      confidenceBasis: "shifts block to avoid overlapping with TRD maintenance",
+      topFactors: ["Shared km point with TRD block", "Can be sequenced safely"],
+      recommendedAction: "Shift start by 2 hrs"
+    },
+    auditTrail: []
   },
   {
-    id: "BLK-4518",
-    summary: "Proposes 08:00–09:30 block at Km 239/2 for OHE dropper repair with shadow S&T point machine lubrication.",
-    constraints: [
-      { label: "Passenger train path clear", met: true },
-      { label: "Freight impact minimal", met: true, detail: "1 container spl rerouted" },
-      { label: "Shadow opportunity merged", met: true, detail: "S&T lubrication bundled" },
-      { label: "IMR SLA deadline met", met: true, detail: "1 day remaining" },
-      { label: "Cross-department conflict resolved", met: true },
-    ],
-    confidence: 88,
-    section: "Km 239/2, UP line",
-    scheduledTime: "Tomorrow, 08:00–09:30",
-    department: "Engg",
-    shadowDepts: ["S&T"],
-    notifyDepts: ["S&T"],
-  },
+    id: "BLK-4523",
+    department: "TRD",
+    category: "OBS",
+    description: "OHE mast inspection",
+    location: { kmStart: 238, kmEnd: 241, line: "UP" },
+    scheduledWindow: { start: `${TODAY_BASE}T14:30:00Z`, end: `${TODAY_BASE}T16:30:00Z` },
+    urgency: { timeToBreachHours: 120, tier: "caution" },
+    status: "Under review",
+    source: { system: "SMMS", lastUpdated: "2h ago" },
+    conflict: { conflictId: "CONF-002", severity: "medium", status: "Unresolved" },
+    aiSuggestion: null,
+    auditTrail: []
+  }
 ];
 
-// ─── Conflicts ───────────────────────────────────────────────────────
-
-export const mockConflicts: Conflict[] = [
+export const mockConflicts: ConflictRecord[] = [
   {
     id: "CONF-001",
-    blockA: { id: "BLK-4521", department: "Engg", description: "Rail fracture repair", section: "Km 244–248, UP", time: "05 Sep, 14:00–16:00" },
-    blockB: { id: "BLK-4520", department: "S&T", description: "Track circuit relay replacement", section: "Km 250–252, DN", time: "06 Sep, 10:00–12:30" },
-    overlapKm: "Km 248–250 (adjacent, corridor constraint)",
-    overlapTime: "Adjacent day, same corridor",
-    resolved: false,
+    blockAId: "BLK-4521",
+    blockBId: "BLK-4520", // Note: mock data artificially creates overlap for UI testing
+    overlapDescription: "Km 248-250 (adjacent, corridor constraint)",
+    status: "Unresolved",
+    windowStart: `${TODAY_BASE}T10:00:00Z`
   },
   {
     id: "CONF-002",
-    blockA: { id: "BLK-4517", department: "Engg", description: "Ballast deficiency rectification", section: "Km 241/5, DN", time: "07 Sep, 14:00–16:00" },
-    blockB: { id: "BLK-4523", department: "TRD", description: "OHE mast inspection", section: "Km 238–241, UP", time: "06 Sep, 11:00–13:00" },
-    overlapKm: "Km 241 (shared point)",
-    overlapTime: "Adjacent time windows, same Km",
-    resolved: false,
+    blockAId: "BLK-4517",
+    blockBId: "BLK-4523",
+    overlapDescription: "Km 241 (shared point, overlapping time window)",
+    status: "Unresolved",
+    windowStart: `${TODAY_BASE}T14:00:00Z`
   },
   {
     id: "CONF-003",
-    blockA: { id: "BLK-4518", department: "Engg", description: "OHE dropper repair", section: "Km 239/2, UP", time: "05 Sep, 08:00–09:30" },
-    blockB: { id: "BLK-4519", department: "TRD", description: "OHE mast foundation inspection", section: "Km 238–241, UP", time: "06 Sep, 11:00–13:00" },
-    overlapKm: "Km 239–241 (shared section)",
-    overlapTime: "Consecutive day, can be merged",
-    resolved: true,
-  },
+    blockAId: "BLK-4518",
+    blockBId: "BLK-4519",
+    overlapDescription: "Km 239-241 (shared section)",
+    status: "Resolved",
+    windowStart: `${TODAY_BASE}T08:00:00Z`,
+    resolution: { action: "Merged", actor: "S. Mehta", timestamp: `${TODAY_BASE}T07:30:00Z` }
+  }
 ];
 
-// ─── Train paths (passenger vs freight distinguished) ────────────────
+export const mockMetrics: AnalyticsMetric[] = [
+  {
+    name: "Shadow block utilization",
+    currentValue: 42,
+    baselineValue: 28,
+    unit: "%",
+    goodDirection: "up",
+    weeklySeries: [
+      { weekLabel: "W1", value: 25 },
+      { weekLabel: "W2", value: 30 },
+      { weekLabel: "W3", value: 35 },
+      { weekLabel: "W4", value: 42 }
+    ],
+    dateRangeCurrent: { start: "01 Aug 2026", end: "31 Aug 2026" },
+    dateRangeBaseline: { start: "01 Jul 2026", end: "31 Jul 2026" },
+    sampleSizeCurrent: 450,
+    sampleSizeBaseline: 420
+  },
+  {
+    name: "Average block downtime",
+    currentValue: 2.1,
+    baselineValue: 3.4,
+    unit: "hrs",
+    goodDirection: "down",
+    weeklySeries: [
+      { weekLabel: "W1", value: 3.2 },
+      { weekLabel: "W2", value: 2.8 },
+      { weekLabel: "W3", value: 2.5 },
+      { weekLabel: "W4", value: 2.1 }
+    ],
+    dateRangeCurrent: { start: "01 Aug 2026", end: "31 Aug 2026" },
+    dateRangeBaseline: { start: "01 Jul 2026", end: "31 Jul 2026" },
+    sampleSizeCurrent: 450,
+    sampleSizeBaseline: 420
+  },
+  {
+    name: "Cross-dept conflict rate",
+    currentValue: 8,
+    baselineValue: 34,
+    unit: "%",
+    goodDirection: "down",
+    weeklySeries: [
+      { weekLabel: "W1", value: 30 },
+      { weekLabel: "W2", value: 22 },
+      { weekLabel: "W3", value: 15 },
+      { weekLabel: "W4", value: 8 }
+    ],
+    dateRangeCurrent: { start: "01 Aug 2026", end: "31 Aug 2026" },
+    dateRangeBaseline: { start: "01 Jul 2026", end: "31 Jul 2026" },
+    sampleSizeCurrent: 450,
+    sampleSizeBaseline: 420
+  }
+];
+
+export const mockStations: Station[] = [
+  { id: "umb", name: "Ambala Cantt", km: 238, lines: ["UP", "DN"] },
+  { id: "srs", name: "Sarsehri", km: 241, lines: ["UP", "DN", "Loop"] },
+  { id: "nrg", name: "Naraingarh", km: 244, lines: ["UP", "DN", "Loop"] },
+  { id: "bra", name: "Barara", km: 248, lines: ["UP", "DN"] },
+  { id: "sre", name: "Saharanpur", km: 252, lines: ["UP", "DN", "Loop"] },
+];
 
 export const mockTrainPaths: TrainPath[] = [
-  { id: "12005", name: "Kalka Shatabdi", time: "06:00", km: [238, 252], type: "Superfast" },
-  { id: "14095", name: "Himalayan Queen", time: "12:10", km: [238, 252], type: "Mail/Express" },
-  { id: "22455", name: "Rajdhani Express", time: "16:15", km: [238, 252], type: "Rajdhani" },
-  { id: "FRT-4421", name: "BCNA Rake", time: "09:30", km: [240, 248], type: "Freight" },
-  { id: "FRT-4422", name: "BOXN Rake", time: "14:45", km: [239, 250], type: "Freight" },
-  { id: "FRT-4423", name: "Container Spl", time: "21:00", km: [238, 252], type: "Freight" },
-];
-
-// ─── Timeline blocks (with row assignment to prevent overlap) ────────
-
-export const mockTimelineBlocks: TimelineBlock[] = [
-  { id: "BLK-4518", label: "Engg: OHE dropper repair", startHour: 8, endHour: 9.5, department: "Engg", row: 0 },
-  { id: "BLK-4520", label: "S&T: Relay replacement", startHour: 10, endHour: 12.5, department: "S&T", row: 0 },
-  { id: "BLK-4521", label: "Engg: Rail fracture repair", startHour: 14, endHour: 16, department: "Engg", row: 0 },
-  { id: "BLK-SHADOW-1", label: "TRD: OHE inspection (shadow)", startHour: 14, endHour: 15.5, department: "TRD", row: 1 },
+  {
+    id: "12005", name: "Kalka Shatabdi", type: "Passenger",
+    stops: [
+      { stationId: "umb", km: 238, time: 6 * 3600000 },
+      { stationId: "srs", km: 241, time: 6.12 * 3600000 },
+      { stationId: "nrg", km: 244, time: 6.22 * 3600000 },
+      { stationId: "bra", km: 248, time: 6.38 * 3600000 },
+      { stationId: "sre", km: 252, time: 6.55 * 3600000 },
+    ],
+  },
+  {
+    id: "FRT-4422", name: "BOXN Rake", type: "Freight",
+    stops: [
+      { stationId: "srs", km: 241, time: 14.5 * 3600000 },
+      { stationId: "nrg", km: 244, time: 14.75 * 3600000 },
+      { stationId: "bra", km: 248, time: 15.25 * 3600000 },
+      { stationId: "sre", km: 252, time: 15.6 * 3600000 },
+    ],
+  }
 ];

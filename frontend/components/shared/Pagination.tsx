@@ -22,7 +22,7 @@ export default function Pagination({
   if (totalItems <= pageSize) return null;
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 border-t border-border-default text-[12px] text-text-secondary">
+    <nav aria-label="Page navigation" className="flex items-center justify-between px-4 py-2 border-t border-border-default text-[12px] text-text-secondary">
       <span>
         Showing {start}–{end} of {totalItems} items
       </span>
@@ -30,6 +30,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
+          aria-label="Previous page"
           className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded hover:bg-surface-sunken disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronLeft size={14} strokeWidth={1.75} />
@@ -38,6 +39,8 @@ export default function Pagination({
           <button
             key={page}
             onClick={() => onPageChange(page)}
+            aria-label={`Page ${page}`}
+            aria-current={page === currentPage ? "page" : undefined}
             className={`
               min-w-[44px] min-h-[44px] flex items-center justify-center border border-border-default rounded text-[13px]
               ${
@@ -53,11 +56,12 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
+          aria-label="Next page"
           className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded hover:bg-surface-sunken disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronRight size={14} strokeWidth={1.75} />
         </button>
       </div>
-    </div>
+    </nav>
   );
 }

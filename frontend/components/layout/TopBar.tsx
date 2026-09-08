@@ -20,11 +20,18 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="relative p-1.5 rounded hover:bg-surface-sunken transition-colors">
+        <button
+          aria-label="Notifications — 1 new"
+          className="relative touch-target p-2 rounded hover:bg-surface-sunken transition-colors"
+        >
           <Bell size={16} strokeWidth={1.75} className="text-text-secondary" />
-          <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-critical rounded-full" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-critical rounded-full" />
         </button>
-        <div className="flex items-center gap-2 pl-3 border-l border-border-default">
+        <div
+          className="flex items-center gap-2 pl-3 border-l border-border-default"
+          role="status"
+          aria-label="Logged in as SSE, Ambala division"
+        >
           <User size={16} strokeWidth={1.75} className="text-text-secondary" />
           <span className="text-[12px] text-text-secondary">SSE / Ambala</span>
         </div>

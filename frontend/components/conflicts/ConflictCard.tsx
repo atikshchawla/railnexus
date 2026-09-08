@@ -64,15 +64,15 @@ export default function ConflictCard({ conflict }: ConflictCardProps) {
       {/* Resolution actions */}
       {!conflict.resolved && (
         <div className="px-4 py-2.5 border-t border-border-default flex items-center gap-2">
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors">
+          <button className="inline-flex items-center gap-1.5 px-3 py-2.5 text-[12.5px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors">
             <Merge size={13} strokeWidth={2} />
             Merge into combined block
           </button>
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-medium border border-border-default text-text-primary hover:bg-surface-sunken transition-colors">
+          <button className="inline-flex items-center gap-1.5 px-3 py-2.5 text-[12.5px] font-medium border border-border-default text-text-primary hover:bg-surface-sunken transition-colors">
             <ArrowRightLeft size={13} strokeWidth={2} />
             Sequence (A then B)
           </button>
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-medium border border-border-default text-critical hover:bg-critical/5 transition-colors">
+          <button className="inline-flex items-center gap-1.5 px-3 py-2.5 text-[12.5px] font-medium border border-border-default text-critical hover:bg-critical/5 transition-colors">
             <ArrowUpRight size={13} strokeWidth={2} />
             Escalate
           </button>

@@ -1,14 +1,14 @@
-import type { MaintenanceRequest } from "@/lib/mock-approvals";
+import type { BacklogItem } from "@/lib/types";
 import { FileText, Send, Clock, CheckCircle } from "lucide-react";
 
 interface MaintenanceTableProps {
-  requests: MaintenanceRequest[];
+  requests: BacklogItem[];
 }
 
 const priorityStyle: Record<string, string> = {
-  IMR: "text-critical bg-critical/8",
-  OBS: "text-warning bg-warning-bg",
-  PM: "text-info bg-info/8",
+  IMR: "badge-imr",
+  OBS: "badge-obs",
+  PM: "badge-pm",
   Routine: "text-text-secondary bg-surface-sunken",
 };
 
@@ -25,15 +25,15 @@ export default function MaintenanceTable({ requests }: MaintenanceTableProps) {
       <table className="w-full text-[13px]">
         <thead>
           <tr className="bg-surface-sunken text-text-secondary text-left">
-            <th className="px-4 py-2 font-medium">Priority</th>
-            <th className="px-4 py-2 font-medium">Request ID</th>
-            <th className="px-4 py-2 font-medium">Dept</th>
-            <th className="px-4 py-2 font-medium">Description</th>
-            <th className="px-4 py-2 font-medium">Section</th>
-            <th className="px-4 py-2 font-medium">Requested date</th>
-            <th className="px-4 py-2 font-medium">Duration</th>
-            <th className="px-4 py-2 font-medium">Submitted by</th>
-            <th className="px-4 py-2 font-medium">Status</th>
+            <th scope="col" className="px-4 py-2 font-medium">Priority</th>
+            <th scope="col" className="px-4 py-2 font-medium">Request ID</th>
+            <th scope="col" className="px-4 py-2 font-medium">Dept</th>
+            <th scope="col" className="px-4 py-2 font-medium">Description</th>
+            <th scope="col" className="px-4 py-2 font-medium">Location</th>
+            <th scope="col" className="px-4 py-2 font-medium">Last Synced</th>
+            <th scope="col" className="px-4 py-2 font-medium">Deadline</th>
+            <th scope="col" className="px-4 py-2 font-medium">Source</th>
+            <th scope="col" className="px-4 py-2 font-medium">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-default">
@@ -47,9 +47,9 @@ export default function MaintenanceTable({ requests }: MaintenanceTableProps) {
               >
                 <td className="px-4 py-2">
                   <span
-                    className={`inline-block text-[11px] font-semibold px-1.5 py-0.5 ${priorityStyle[req.priority]}`}
+                    className={`inline-block text-[11px] font-semibold px-1.5 py-0.5 ${priorityStyle[req.category]}`}
                   >
-                    {req.priority}
+                    {req.category}
                   </span>
                 </td>
                 <td className="px-4 py-2 num font-medium">{req.id}</td>
@@ -59,13 +59,13 @@ export default function MaintenanceTable({ requests }: MaintenanceTableProps) {
                 <td className="px-4 py-2 max-w-[260px] truncate">
                   {req.description}
                 </td>
-                <td className="px-4 py-2 num text-[12px]">{req.section}</td>
+                <td className="px-4 py-2 num text-[12px]">{req.location}</td>
                 <td className="px-4 py-2 num text-[12px]">
-                  {req.requestedDate}
+                  {req.provenance.lastSynced}
                 </td>
-                <td className="px-4 py-2 num">{req.requestedDuration}</td>
+                <td className="px-4 py-2 num">{req.urgency.deadline}</td>
                 <td className="px-4 py-2 text-[12px] text-text-secondary">
-                  {req.submittedBy}
+                  {req.provenance.system}
                 </td>
                 <td className="px-4 py-2">
                   <span className={`inline-flex items-center gap-1 text-[12px] font-medium ${status.className}`}>

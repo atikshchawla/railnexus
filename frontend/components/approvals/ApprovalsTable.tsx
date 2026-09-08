@@ -10,16 +10,16 @@ import {
   Square,
   Eye,
 } from "lucide-react";
-import type { BlockRequest } from "@/lib/mock-approvals";
+import type { BlockRequest } from "@/lib/types";
 
 interface ApprovalsTableProps {
   requests: BlockRequest[];
 }
 
 const priorityStyle: Record<string, string> = {
-  IMR: "text-critical bg-critical/8",
-  OBS: "text-warning bg-warning-bg",
-  PM: "text-info bg-info/8",
+  IMR: "badge-imr",
+  OBS: "badge-obs",
+  PM: "badge-pm",
   Routine: "text-text-secondary bg-surface-sunken",
 };
 
@@ -27,28 +27,19 @@ const statusStyle: Record<string, string> = {
   Pending: "text-warning",
   Approved: "text-success",
   Rejected: "text-critical",
-  Active: "text-info",
-  Completed: "text-text-secondary",
 };
 
 export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
+  const [filter, setFilter] = useState<"Under review" | "Approved" | "Rejected">("Under review");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [deptFilter, setDeptFilter] = useState<string>("All");
-  const [priorityFilter, setPriorityFilter] = useState<string>("All");
 
-  const filtered = requests.filter((r) => {
-    if (deptFilter !== "All" && r.department !== deptFilter) return false;
-    if (priorityFilter !== "All" && r.priority !== priorityFilter) return false;
-    return true;
-  });
+  const filtered = requests.filter((req) => req.status === filter);
 
   const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const newSet = new Set(selected);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelected(newSet);
   };
 
   const toggleAll = () => {
@@ -58,44 +49,41 @@ export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
       setSelected(new Set(filtered.map((r) => r.id)));
     }
   };
-
-  const pendingSelected = filtered.filter(
-    (r) => selected.has(r.id) && r.status === "Pending"
-  );
+  
+  const allSelected = selected.size === filtered.length && filtered.length > 0;
 
   return (
-    <div className="bg-surface border border-border-default overflow-hidden">
-      {/* Toolbar: filters + batch actions */}
-      <div className="px-4 py-2.5 border-b border-border-default flex items-center gap-3 flex-wrap">
-        <Filter size={14} strokeWidth={1.75} className="text-text-secondary" />
+    <div className="bg-surface border border-border-default h-full flex flex-col">
+      {/* Header controls */}
+      <div className="px-4 py-3 border-b border-border-default flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Filter
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary"
+            />
+            <select
+              value={filter}
+              onChange={(e) => {
+                setFilter(e.target.value as "Under review" | "Approved" | "Rejected");
+                setSelected(new Set()); // reset selection on filter change
+              }}
+              className="pl-8 pr-8 py-1.5 text-[13px] border border-border-default bg-surface text-text-primary appearance-none cursor-pointer"
+            >
+              <option value="Under review">Pending Approvals</option>
+              <option value="Approved">Recently Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <span className="text-[12px] text-text-secondary">
+            {filtered.length} requests
+          </span>
+        </div>
 
-        <select
-          value={deptFilter}
-          onChange={(e) => setDeptFilter(e.target.value)}
-          className="text-[12.5px] px-2 py-1 border border-border-default bg-surface text-text-primary"
-        >
-          <option value="All">All departments</option>
-          <option value="Engg">Engg</option>
-          <option value="TRD">TRD</option>
-          <option value="S&T">S&T</option>
-        </select>
-
-        <select
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          className="text-[12.5px] px-2 py-1 border border-border-default bg-surface text-text-primary"
-        >
-          <option value="All">All priorities</option>
-          <option value="IMR">IMR</option>
-          <option value="OBS">OBS</option>
-          <option value="PM">PM</option>
-          <option value="Routine">Routine</option>
-        </select>
-
-        {pendingSelected.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
+        {selected.size > 0 && filter === "Under review" && (
+          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4 duration-200">
             <span className="text-[12px] text-text-secondary">
-              {pendingSelected.length} selected
+              {selected.size} selected
             </span>
             <button className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors">
               <ThumbsUp size={12} strokeWidth={2} />
@@ -109,8 +97,8 @@ export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
       <table className="w-full text-[13px]">
         <thead>
           <tr className="bg-surface-sunken text-text-secondary text-left">
-            <th className="px-4 py-2 w-8">
-              <button onClick={toggleAll} className="flex items-center">
+            <th scope="col" className="px-4 py-2 w-8">
+              <button aria-label={allSelected ? "Deselect all blocks" : "Select all blocks"} onClick={toggleAll} className="flex items-center">
                 {selected.size === filtered.length && filtered.length > 0 ? (
                   <CheckSquare size={14} strokeWidth={1.75} />
                 ) : (
@@ -118,17 +106,17 @@ export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
                 )}
               </button>
             </th>
-            <th className="px-4 py-2 font-medium">Priority</th>
-            <th className="px-4 py-2 font-medium">Block ID</th>
-            <th className="px-4 py-2 font-medium">Dept</th>
-            <th className="px-4 py-2 font-medium">Description</th>
-            <th className="px-4 py-2 font-medium">Section</th>
-            <th className="px-4 py-2 font-medium">Date / Time</th>
-            <th className="px-4 py-2 font-medium">Duration</th>
-            <th className="px-4 py-2 font-medium">Confidence</th>
-            <th className="px-4 py-2 font-medium">Shadow</th>
-            <th className="px-4 py-2 font-medium">Status</th>
-            <th className="px-4 py-2 font-medium text-right">Actions</th>
+            <th scope="col" className="px-4 py-2 font-medium">Priority</th>
+            <th scope="col" className="px-4 py-2 font-medium">Block ID</th>
+            <th scope="col" className="px-4 py-2 font-medium">Dept</th>
+            <th scope="col" className="px-4 py-2 font-medium">Description</th>
+            <th scope="col" className="px-4 py-2 font-medium">Section</th>
+            <th scope="col" className="px-4 py-2 font-medium">Date / Time</th>
+            <th scope="col" className="px-4 py-2 font-medium">Duration</th>
+            <th scope="col" className="px-4 py-2 font-medium">Confidence</th>
+            <th scope="col" className="px-4 py-2 font-medium">Shadow</th>
+            <th scope="col" className="px-4 py-2 font-medium">Status</th>
+            <th scope="col" className="px-4 py-2 font-medium text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-default">
@@ -141,6 +129,7 @@ export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
             >
               <td className="px-4 py-2">
                 <button
+                  aria-label={`Select block ${req.id}`}
                   onClick={() => toggleSelect(req.id)}
                   className="flex items-center"
                 >
@@ -157,9 +146,9 @@ export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
               </td>
               <td className="px-4 py-2">
                 <span
-                  className={`inline-block text-[11px] font-semibold px-1.5 py-0.5 ${priorityStyle[req.priority]}`}
+                  className={`inline-block text-[11px] font-semibold px-1.5 py-0.5 ${priorityStyle[req.category]}`}
                 >
-                  {req.priority}
+                  {req.category}
                 </span>
               </td>
               <td className="px-4 py-2 num font-medium">{req.id}</td>
@@ -197,11 +186,12 @@ export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
                 </span>
               </td>
               <td className="px-4 py-2 text-right">
-                {req.status === "Pending" ? (
+                {req.status === "Under review" ? (
                   <div className="flex items-center justify-end gap-1">
                     <button
                       className="p-1 rounded hover:bg-surface-sunken transition-colors"
                       title="View in twin"
+                      aria-label={`View block ${req.id} in twin`}
                     >
                       <Eye
                         size={14}
@@ -212,6 +202,7 @@ export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
                     <button
                       className="p-1 rounded hover:bg-success/10 transition-colors"
                       title="Approve"
+                      aria-label={`Approve block ${req.id}`}
                     >
                       <ThumbsUp
                         size={14}
@@ -222,6 +213,7 @@ export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
                     <button
                       className="p-1 rounded hover:bg-brand/10 transition-colors"
                       title="Adjust timing"
+                      aria-label={`Adjust timing for block ${req.id}`}
                     >
                       <SlidersHorizontal
                         size={14}
@@ -232,6 +224,7 @@ export default function ApprovalsTable({ requests }: ApprovalsTableProps) {
                     <button
                       className="p-1 rounded hover:bg-critical/10 transition-colors"
                       title="Reject"
+                      aria-label={`Reject block ${req.id}`}
                     >
                       <ThumbsDown
                         size={14}

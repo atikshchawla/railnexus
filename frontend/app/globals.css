@@ -66,3 +66,25 @@ body {
   background: var(--border-default);
   border-radius: 3px;
 }
+
+/* Accessibility Focus States */
+*:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* Badge Contrast Classes (WCAG 2.1 AA) */
+.badge-imr {
+  color: var(--status-critical);
+  background-color: #FCE8E8; /* Contrast > 4.5:1 */
+}
+
+.badge-obs {
+  color: var(--status-warning);
+  background-color: var(--status-warning-bg); /* Contrast ~4.8:1 */
+}
+
+.badge-pm {
+  color: var(--status-info);
+  background-color: #E5F0FA; /* Contrast > 4.5:1 */
+}

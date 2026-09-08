@@ -30,7 +30,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="p-1 rounded hover:bg-surface-sunken disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded hover:bg-surface-sunken disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronLeft size={14} strokeWidth={1.75} />
         </button>
@@ -38,11 +38,14 @@ export default function Pagination({
           <button
             key={page}
             onClick={() => onPageChange(page)}
-            className={`w-6 h-6 rounded text-[11px] font-medium transition-colors ${
-              page === currentPage
-                ? "bg-brand text-white"
-                : "hover:bg-surface-sunken"
-            }`}
+            className={`
+              min-w-[44px] min-h-[44px] flex items-center justify-center border border-border-default rounded text-[13px]
+              ${
+                page === currentPage
+                  ? "bg-brand text-white font-medium border-brand"
+                  : "text-text-primary hover:bg-surface-sunken"
+              }
+            `}
           >
             {page}
           </button>
@@ -50,7 +53,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="p-1 rounded hover:bg-surface-sunken disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded hover:bg-surface-sunken disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronRight size={14} strokeWidth={1.75} />
         </button>

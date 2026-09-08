@@ -7,3 +7,7 @@ overrun_risk_random_forest.joblib
 encoder.joblib
 random_forest.joblib
 data/**
+*.joblib
+__init__.py
+__pycache__/
+.pytest_cache/

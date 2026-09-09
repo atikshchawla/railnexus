@@ -1,15 +1,13 @@
 /**
  * Frozen corridor contract — Member B reasoning ground.
  *
- * Ambala Cantt–Saharanpur, Northern Railway (UP/DN), Km 238–252.
- * Station km markers are the demo's fictional segment (projects the existing
- * frontend mock geography); real-world spacing differs. Recorded in
- * docs/domain-glossary.md as "Project-defined — needs team ratification".
+ * Arakkonam–Jolarpettai, Southern Railway (SR_CHENNAI), the corridor used by
+ * the training topology and model feature artifacts.
  */
 
 import type { InitialSection } from "./types.js";
 
-export const corridorLabel = "Ambala Cantt–Saharanpur, Northern Railway";
+export const corridorLabel = "Arakkonam–Jolarpettai, Southern Railway (SR_CHENNAI)";
 
 export interface CorridorStation {
   code: string;
@@ -18,11 +16,15 @@ export interface CorridorStation {
 }
 
 export const corridorStations: CorridorStation[] = [
-  { code: "UMB", name: "Ambala Cantt", km: 238 },
-  { code: "BAR", name: "Barara", km: 243 },
-  { code: "YJ", name: "Yamunanagar Jagadhri", km: 248 },
-  { code: "YWS", name: "Jagadhri Workshop", km: 250 },
-  { code: "SRE", name: "Saharanpur", km: 252 },
+  { code: "AJJ", name: "Arakkonam Junction", km: 0 },
+  { code: "SHU", name: "Sholinghur", km: 21.3 },
+  { code: "WJR", name: "Walajah Road", km: 36.2 },
+  { code: "MCN", name: "Mukundarayapuram", km: 43.9 },
+  { code: "KPD", name: "Katpadi Junction", km: 60.9 },
+  { code: "GYM", name: "Gudiyattam", km: 85.6 },
+  { code: "AB", name: "Ambur", km: 113 },
+  { code: "VN", name: "Vaniyambadi", km: 129.1 },
+  { code: "JTJ", name: "Jolarpettai Junction", km: 144.5 },
 ];
 
 export function corridorSections(): InitialSection[] {

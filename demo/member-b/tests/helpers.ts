@@ -37,11 +37,11 @@ export function makeSection(
   fault?: string;
 } {
   return {
-    id: "UMB-BAR",
-    fromStation: "Ambala Cantt",
-    toStation: "Barara",
-    fromKm: 238,
-    toKm: 243,
+    id: "AJJ-SHU",
+    fromStation: "Arakkonam Junction",
+    toStation: "Sholinghur",
+    fromKm: 0,
+    toKm: 21.3,
     status: "Clear",
     ...overloads,
   };
@@ -77,8 +77,8 @@ export function makeTrain(
     km: 240,
     speedKmh: 80,
     status: "running",
-    nextSectionId: "BAR-YJ",
-    heldSectionIds: ["UMB-BAR"],
+    nextSectionId: "SHU-WJR",
+    heldSectionIds: ["AJJ-SHU"],
     ...overloads,
   };
 }

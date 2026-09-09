@@ -82,7 +82,7 @@ describe("Member B HTTP API", () => {
       };
       expect(state.sections).toHaveLength(4);
       expect(state.departments.TDMS.requests).toHaveLength(3);
-      expect(state.corridor).toContain("Ambala");
+      expect(state.corridor).toContain("Arakkonam");
 
       const tms = await fetch(`${testServer.url}/api/departments/TMS/requests`);
       expect((await tms.json()) as { requests: unknown[] }).toEqual({
@@ -112,7 +112,7 @@ const health = await fetch(`${testServer.url}/health`);
         body: JSON.stringify({
           department: "TDMS",
           type: "section_entry",
-          sectionId: "BAR-YJ",
+          sectionId: "SHU-WJR",
           trainId: "JUDGE-1",
         }),
       });
@@ -130,7 +130,7 @@ const health = await fetch(`${testServer.url}/health`);
       expect(body.request.id).toMatch(/^REQ-TDMS-\d+$/);
       expect(body.request.department).toBe("TDMS");
       expect(body.request.trainId).toBe("JUDGE-1");
-      expect(body.request.sectionId).toBe("BAR-YJ");
+      expect(body.request.sectionId).toBe("SHU-WJR");
       expect(body.decision.decision).toBe("approved");
 
       const state = (await (
@@ -139,7 +139,7 @@ const health = await fetch(`${testServer.url}/health`);
         sections: { id: string; state: string }[];
         departments: { TDMS: { requests: { id: string }[] } };
       };
-      const barYj = state.sections.find((section) => section.id === "BAR-YJ");
+      const barYj = state.sections.find((section) => section.id === "SHU-WJR");
       expect(barYj?.state).toBe("Approved");
       expect(state.departments.TDMS.requests).toHaveLength(1);
     } finally {
@@ -156,7 +156,7 @@ const health = await fetch(`${testServer.url}/health`);
         body: JSON.stringify({
           department: "TMS",
           type: "running_status",
-          sectionId: "YWS-SRE",
+          sectionId: "MCN-KPD",
           trainId: "SPL-9",
           payload: { delayMinutes: 22, line: "UP" },
         }),
@@ -165,7 +165,7 @@ const health = await fetch(`${testServer.url}/health`);
       const state = (await (
         await fetch(`${testServer.url}/api/state`)
       ).json()) as { sections: { id: string; state: string }[] };
-      const ywsSre = state.sections.find((section) => section.id === "YWS-SRE");
+      const ywsSre = state.sections.find((section) => section.id === "MCN-KPD");
       expect(ywsSre?.state).toBe("Clear");
     } finally {
       testServer.close();
@@ -181,7 +181,7 @@ const health = await fetch(`${testServer.url}/health`);
         body: JSON.stringify({
           department: "SMMS",
           type: "maintenance_block",
-          sectionId: "UMB-BAR",
+          sectionId: "AJJ-SHU",
           payload: { fault: "OHE dropper snapped" },
         }),
       });
@@ -191,7 +191,7 @@ const health = await fetch(`${testServer.url}/health`);
         body: JSON.stringify({
           department: "SMMS",
           type: "maintenance_block",
-          sectionId: "BAR-YJ",
+          sectionId: "SHU-WJR",
         }),
       });
       expect(first.status).toBe(201);
@@ -203,7 +203,7 @@ const health = await fetch(`${testServer.url}/health`);
       const state = (await (
         await fetch(`${testServer.url}/api/state`)
       ).json()) as { sections: { id: string; state: string }[] };
-      const umbBar = state.sections.find((section) => section.id === "UMB-BAR");
+      const umbBar = state.sections.find((section) => section.id === "AJJ-SHU");
       expect(umbBar?.state).toBe("Block active");
     } finally {
       testServer.close();

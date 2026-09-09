@@ -21,7 +21,7 @@ describe("TMS department", () => {
       department: "TMS",
       type: "running_status",
       trainId: "12005",
-      sectionId: "BAR-YJ",
+      sectionId: "SHU-WJR",
       status: "submitted",
     });
     expect(requests[0]!.payload.delayMinutes).toBe(DELAY_THRESHOLD_MINUTES + 2);

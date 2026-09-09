@@ -5,31 +5,31 @@
       "id": "SMP-3301",
       "name": "UP Demo Local",
       "line": "UP",
-      "km": 240.5,
+      "km": 18.5,
       "speedKmh": 45,
       "status": "delayed",
       "delayMinutes": 22,
-      "nextSectionId": "BAR-YJ",
-      "heldSectionIds": ["UMB-BAR"]
+      "nextSectionId": "SHU-WJR",
+      "heldSectionIds": ["AJJ-SHU"]
     },
     {
       "id": "SMP-4402",
       "name": "Down Demo Freight",
       "line": "DN",
-      "km": 250.5,
+      "km": 132.5,
       "speedKmh": 60,
       "status": "running",
-      "nextSectionId": "YWS-SRE",
-      "heldSectionIds": ["YJ-YWS", "BAR-YJ"]
+      "nextSectionId": "VN-JTJ",
+      "heldSectionIds": ["AB-VN"]
     }
   ],
   "sections": [
     {
-      "id": "BAR-YJ",
-      "fromStation": "Barara",
-      "toStation": "Yamunanagar Jagadhri",
-      "fromKm": 243,
-      "toKm": 248,
+      "id": "MCN-KPD",
+      "fromStation": "Mukundarayapuram",
+      "toStation": "Katpadi Junction",
+      "fromKm": 43.9,
+      "toKm": 60.9,
       "status": "Clear",
       "fault": "OHE dropper snapped"
     }

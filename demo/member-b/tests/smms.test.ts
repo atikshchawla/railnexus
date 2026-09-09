@@ -12,7 +12,7 @@ describe("SMMS department — raising", () => {
   it("raises a maintenance-block request for a section with a fault", () => {
     const store = makeStore();
     const requests = engine.raise(
-      snapshotWith([makeSection({ id: "BAR-YJ", fault: "OHE dropper snapped" })]),
+      snapshotWith([makeSection({ id: "SHU-WJR", fault: "OHE isolator failure" })]),
       engineCtx(),
       store,
     );
@@ -20,15 +20,15 @@ describe("SMMS department — raising", () => {
     expect(requests[0]).toMatchObject({
       department: "SMMS",
       type: "maintenance_block",
-      sectionId: "BAR-YJ",
+      sectionId: "SHU-WJR",
       status: "submitted",
     });
-    expect(requests[0]!.description).toBe("Section BAR-YJ requires emergency maintenance block");
+    expect(requests[0]!.description).toBe("Section SHU-WJR requires emergency maintenance block");
   });
 
   it("does not raise when there is no fault", () => {
     const store = makeStore();
-    const requests = engine.raise(snapshotWith([makeSection({ id: "BAR-YJ" })]), engineCtx(), store);
+    const requests = engine.raise(snapshotWith([makeSection({ id: "SHU-WJR" })]), engineCtx(), store);
     expect(requests).toHaveLength(0);
   });
 
@@ -38,10 +38,10 @@ describe("SMMS department — raising", () => {
       id: "R1",
       department: "SMMS",
       type: "maintenance_block",
-      sectionId: "BAR-YJ",
+      sectionId: "SHU-WJR",
       km: 243,
       payload: { fault: "OHE dropper snapped" },
-      description: "Section BAR-YJ requires emergency maintenance block",
+      description: "Section SHU-WJR requires emergency maintenance block",
       raisedAt: "2026-09-09T10:00:00.000Z",
       status: "submitted",
     });
@@ -49,12 +49,12 @@ describe("SMMS department — raising", () => {
       id: "D1",
       requestId: "R1",
       decision: "approved",
-      sectionId: "BAR-YJ",
+      sectionId: "SHU-WJR",
       sectionState: "Block active",
       decidedAt: "2026-09-09T10:00:00.000Z",
     });
     const requests = engine.raise(
-      snapshotWith([makeSection({ id: "BAR-YJ", fault: "OHE dropper snapped" })]),
+      snapshotWith([makeSection({ id: "SHU-WJR", fault: "OHE isolator failure" })]),
       engineCtx(),
       store,
     );
@@ -64,7 +64,7 @@ describe("SMMS department — raising", () => {
   it("dedupes while an identical request is unresolved", () => {
     const store = makeStore();
     const ctx = engineCtx();
-    const snapshot = () => snapshotWith([makeSection({ id: "BAR-YJ", fault: "OHE dropper snapped" })]);
+    const snapshot = () => snapshotWith([makeSection({ id: "SHU-WJR", fault: "OHE isolator failure" })]);
     const first = engine.raise(snapshot(), ctx, store);
     for (const request of first) store.addRequest(request);
     expect(engine.raise(snapshot(), ctx, store)).toHaveLength(0);

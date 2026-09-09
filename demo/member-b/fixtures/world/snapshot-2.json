@@ -1,14 +1,18 @@
 {
   "timestamp": "2026-09-09T10:04:00.000Z",
   "sections": [
-    { "id": "UMB-BAR", "fromStation": "Ambala Cantt", "toStation": "Barara", "fromKm": 238, "toKm": 243, "status": "Clear" },
-    { "id": "BAR-YJ", "fromStation": "Barara", "toStation": "Yamunanagar Jagadhri", "fromKm": 243, "toKm": 248, "status": "Caution", "fault": "OHE dropper snapped" },
-    { "id": "YJ-YWS", "fromStation": "Yamunanagar Jagadhri", "toStation": "Jagadhri Workshop", "fromKm": 248, "toKm": 250, "status": "Clear" },
-    { "id": "YWS-SRE", "fromStation": "Jagadhri Workshop", "toStation": "Saharanpur", "fromKm": 250, "toKm": 252, "status": "Clear" }
+    { "id": "AJJ-SHU", "fromStation": "Arakkonam Junction", "toStation": "Sholinghur", "fromKm": 0, "toKm": 21.3, "status": "Clear" },
+    { "id": "SHU-WJR", "fromStation": "Sholinghur", "toStation": "Walajah Road", "fromKm": 21.3, "toKm": 36.2, "status": "Clear" },
+    { "id": "WJR-MCN", "fromStation": "Walajah Road", "toStation": "Mukundarayapuram", "fromKm": 36.2, "toKm": 43.9, "status": "Clear" },
+    { "id": "MCN-KPD", "fromStation": "Mukundarayapuram", "toStation": "Katpadi Junction", "fromKm": 43.9, "toKm": 60.9, "status": "Caution", "fault": "OHE isolator failure" },
+    { "id": "KPD-GYM", "fromStation": "Katpadi Junction", "toStation": "Gudiyattam", "fromKm": 60.9, "toKm": 85.6, "status": "Clear" },
+    { "id": "GYM-AB", "fromStation": "Gudiyattam", "toStation": "Ambur", "fromKm": 85.6, "toKm": 113, "status": "Clear" },
+    { "id": "AB-VN", "fromStation": "Ambur", "toStation": "Vaniyambadi", "fromKm": 113, "toKm": 129.1, "status": "Clear" },
+    { "id": "VN-JTJ", "fromStation": "Vaniyambadi", "toStation": "Jolarpettai Junction", "fromKm": 129.1, "toKm": 144.5, "status": "Clear" }
   ],
   "trains": [
-    { "id": "12005", "name": "Kalka Shatabdi", "line": "UP", "km": 241.6, "speedKmh": 40, "status": "delayed", "delayMinutes": 12, "nextSectionId": "BAR-YJ", "heldSectionIds": ["UMB-BAR"] },
-    { "id": "22455", "name": "Rajdhani Express", "line": "DN", "km": 249.8, "speedKmh": 90, "status": "running", "nextSectionId": "YJ-YWS", "heldSectionIds": ["YWS-SRE"] },
-    { "id": "14095", "name": "Himalayan Queen", "line": "UP", "km": 240.1, "speedKmh": 65, "status": "running", "nextSectionId": "BAR-YJ", "heldSectionIds": ["UMB-BAR"] }
+    { "id": "12005", "name": "Chennai–Mysuru Shatabdi", "line": "UP", "km": 18.4, "speedKmh": 40, "status": "delayed", "delayMinutes": 12, "nextSectionId": "SHU-WJR", "heldSectionIds": ["AJJ-SHU"] },
+    { "id": "22601", "name": "Chennai–Bengaluru Mail", "line": "UP", "km": 82.8, "speedKmh": 90, "status": "running", "nextSectionId": "GYM-AB", "heldSectionIds": ["KPD-GYM"] },
+    { "id": "12608", "name": "Lalbagh Express", "line": "DN", "km": 119.1, "speedKmh": 65, "status": "running", "nextSectionId": "AB-VN", "heldSectionIds": ["VN-JTJ"] }
   ]
 }

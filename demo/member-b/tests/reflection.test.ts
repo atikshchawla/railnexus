@@ -33,10 +33,10 @@ describe("Store.applyDecision", () => {
       id: "REQ-SMMS-1",
       department: "SMMS",
       type: "maintenance_block",
-      sectionId: "BAR-YJ",
+      sectionId: "SHU-WJR",
       km: 245,
       payload: { fault: "OHE dropper snapped" },
-      description: "Section BAR-YJ requires emergency maintenance block",
+      description: "Section SHU-WJR requires emergency maintenance block",
       raisedAt: "2026-09-09T10:04:00.000Z",
       status: "submitted",
     });
@@ -44,12 +44,12 @@ describe("Store.applyDecision", () => {
       id: "DEC-REQ-SMMS-1",
       requestId: "REQ-SMMS-1",
       decision: "approved",
-      sectionId: "BAR-YJ",
+      sectionId: "SHU-WJR",
       sectionState: "Block active",
       decidedAt: "2026-09-09T10:04:00.000Z",
     });
 
-    expect(store.getSectionState("BAR-YJ")).toBe("Block active");
+    expect(store.getSectionState("SHU-WJR")).toBe("Block active");
     expect(store.requestsFor("SMMS")[0]!.status).toBe("decided");
   });
 
@@ -60,10 +60,10 @@ describe("Store.applyDecision", () => {
       department: "TDMS",
       type: "section_entry",
       trainId: "12005",
-      sectionId: "BAR-YJ",
+      sectionId: "SHU-WJR",
       km: 240,
       payload: {},
-      description: "Train 12005 requests block entry into section BAR-YJ",
+      description: "Train 12005 requests block entry into section SHU-WJR",
       raisedAt: "2026-09-09T10:00:00.000Z",
       status: "submitted",
     });

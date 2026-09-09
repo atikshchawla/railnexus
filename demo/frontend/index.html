@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RailNexus Demo Control Office</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <span class="eyebrow">RAILNEXUS / DEMO CONTROL</span>
+        <h1>Southern Railway live operations</h1>
+        <p id="corridorLabel">AJJ–JTJ trained corridor</p>
+      </div>
+      <div class="top-actions">
+        <span id="connectionBadge" class="connection offline">OFFLINE</span>
+        <span class="tick-readout">TICK <strong id="tickValue">--</strong></span>
+        <div class="mode-switch" role="tablist" aria-label="Console mode">
+          <button class="mode-button active" data-mode="coa" role="tab">COA dashboard</button>
+          <button class="mode-button" data-mode="world" role="tab">Member A console</button>
+        </div>
+      </div>
+    </header>
+
+    <section id="coaView" class="view active-view" aria-label="Member B control office dashboard">
+      <div class="dashboard-grid">
+        <section class="map-panel panel">
+          <div class="panel-heading">
+            <div>
+              <span class="section-kicker">LIVE CONTROL OFFICE</span>
+              <h2>AJJ–JTJ network state</h2>
+            </div>
+            <span class="live-chip"><i></i> LIVE FEED</span>
+          </div>
+          <div id="coaMap" class="map-canvas" aria-label="Live corridor map"></div>
+          <div class="legend" aria-label="Section state legend">
+            <span><i class="swatch clear"></i>Clear</span>
+            <span><i class="swatch occupied"></i>Occupied</span>
+            <span><i class="swatch blocked"></i>Maintenance</span>
+            <span><i class="swatch reserved"></i>Reserved</span>
+          </div>
+        </section>
+
+        <aside class="side-stack">
+          <section class="panel feed-panel">
+            <div class="panel-heading compact"><h2>Request feed</h2><span id="requestCount">0 events</span></div>
+            <div id="requestFeed" class="request-feed"><p class="empty-state">Waiting for the first live request.</p></div>
+          </section>
+          <section class="panel injector-panel">
+            <div class="panel-heading compact"><h2>Raise a request</h2><span class="muted">ABP input</span></div>
+            <form id="injectForm" class="inject-form">
+              <label>Department<select id="departmentInput"><option>TDMS</option><option>TMS</option><option>SMMS</option></select></label>
+              <label>Type<select id="typeInput"><option value="section_entry">Section entry</option><option value="running_status">Running status</option><option value="maintenance_block">Maintenance block</option></select></label>
+              <label>Train<select id="trainInput"><option value="">No train</option></select></label>
+              <label>Section<select id="sectionInput"></select></label>
+              <button class="primary-button" type="submit">Submit request <span>↗</span></button>
+              <p id="injectMessage" class="form-message" role="status"></p>
+            </form>
+          </section>
+        </aside>
+      </div>
+      <section class="presenter-strip panel">
+        <div><span class="section-kicker">PRESENTER CONTROLS</span><strong>Keep the loop visible.</strong></div>
+        <button id="pauseButton" class="control-button">Pause feed</button>
+        <button id="faultButton" class="control-button danger-button">Inject MCN–KPD fault</button>
+        <span id="lastUpdate" class="muted">No snapshot yet</span>
+      </section>
+    </section>
+
+    <section id="worldView" class="view" aria-label="Member A world simulation debug console">
+      <div class="world-toolbar panel">
+        <div><span class="section-kicker">MEMBER A / PHYSICAL WORLD</span><h2>Simulation debug console</h2></div>
+        <div class="toolbar-controls"><span>Tick <strong id="worldTick">--</strong></span><span id="worldSpeed">1x</span><button id="worldPauseButton" class="control-button">Pause</button></div>
+      </div>
+      <div class="world-grid">
+        <section class="panel map-panel"><div class="panel-heading compact"><h2>Corridor map</h2><span class="muted">real trained topology</span></div><div id="worldMap" class="map-canvas world-map"></div></section>
+        <section class="tables-column">
+          <section class="panel table-panel"><div class="panel-heading compact"><h2>Train table</h2><span id="trainCount">0 trains</span></div><div class="table-scroll"><table><thead><tr><th>ID</th><th>Section</th><th>Status</th><th>Delay</th><th>Speed</th></tr></thead><tbody id="trainTable"></tbody></table></div></section>
+          <section class="panel table-panel"><div class="panel-heading compact"><h2>Section table</h2><span id="sectionCount">0 sections</span></div><div class="table-scroll"><table><thead><tr><th>Section</th><th>Occupant</th><th>State</th><th>Fault</th></tr></thead><tbody id="sectionTable"></tbody></table></div></section>
+        </section>
+      </div>
+      <section class="panel fault-panel"><div><span class="section-kicker">FAULT INJECTION</span><strong>Physical availability hook</strong></div><select id="faultSectionInput"></select><input id="faultDescriptionInput" value="Physical track unavailable" aria-label="Fault description"><button id="worldFaultButton" class="control-button danger-button">Trigger fault</button><button id="clearFaultButton" class="control-button">Clear fault</button></section>
+      <section class="panel raw-panel"><div class="panel-heading compact"><h2>Raw world-state feed</h2><span class="muted">exact Member B contract</span></div><pre id="rawFeed">Waiting for /feed...</pre></section>
+    </section>
+  </main>
+  <style>
+    .map-svg .route { stroke-width: .28; }
+    .map-svg .section-line { stroke-width: .52; }
+    .station-label { font-size: 2.35px; font-weight: 600; paint-order: stroke; stroke: #081216; stroke-width: .55px; }
+    .station-node { stroke-width: 1.1; }
+    .train-dot { stroke-width: 1.1; filter: drop-shadow(0 0 2px currentColor); }
+    .train-label { font-size: 2.15px; paint-order: stroke; stroke: #081216; stroke-width: .5px; }
+  </style>
+  <script src="./app.js"></script>
+</body>
+</html>

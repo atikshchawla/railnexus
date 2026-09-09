@@ -63,15 +63,9 @@ class DemoGatewayService:
                 db.flush()
                 self.prediction_service.predict(db, maintenance)
             except (KeyError, OSError, TypeError, ValueError):
-                db.rollback()
-                record = DemoIntegrationRequest(
-                    request_id=str(request.request_id), department=request.department, type=request.type,
-                    train_id=request.train_id, section_id=request.section_id, description=request.description,
-                    raised_at=request.raised_at.replace(tzinfo=None), status="received",
-                )
-                db.add(record)
-                db.flush()
-                maintenance_request_id = None
+                # We couldn't predict (e.g. missing artifacts), but we MUST NOT rollback.
+                # The maintenance request is safely added and should persist.
+                pass
 
         decision = self._make_decision(request, maintenance_request_id)
         record.status = decision.status

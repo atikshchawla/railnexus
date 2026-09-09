@@ -72,7 +72,7 @@ export default function DetailPanel({
             <dt className="text-text-secondary">Category</dt>
             <dd>{block.category}</dd>
             <dt className="text-text-secondary">Urgency</dt>
-            <dd className="font-medium">{block.urgency.deadline}</dd>
+            <dd className="font-medium">{block.urgency?.deadline}</dd>
             {block.parentBlockId && (
               <>
                 <dt className="text-text-secondary">Parent block</dt>

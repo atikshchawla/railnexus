@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 import { TopBar } from "@/components/layout";
 import { useDashboardData } from "@/lib/dashboard-context";
 import { isImprovement } from "@/lib/rules";
@@ -59,6 +61,9 @@ function TableBar({ value, max, colorClass }: { value: number; max: number; colo
 
 export default function AnalyticsPage() {
   const { data } = useDashboardData();
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+
   const totalBlocks = data.blocks.length;
   const liveMetrics: AnalyticsMetric[] = [
     {
@@ -99,7 +104,9 @@ export default function AnalyticsPage() {
     },
   ];
   const sampleMetric = liveMetrics[0];
-  const sizesMatch = Math.abs(sampleMetric.sampleSizeCurrent - sampleMetric.sampleSizeBaseline) / sampleMetric.sampleSizeBaseline <= 0.2;
+  const sizesMatch = sampleMetric.sampleSizeBaseline === 0 
+    ? sampleMetric.sampleSizeCurrent === 0 
+    : Math.abs(sampleMetric.sampleSizeCurrent - sampleMetric.sampleSizeBaseline) / sampleMetric.sampleSizeBaseline <= 0.2;
 
   return (
     <>
@@ -113,8 +120,8 @@ export default function AnalyticsPage() {
         <div className="bg-surface-sunken border border-border-default px-4 py-3 flex items-start gap-3">
           <Calendar size={16} className="text-text-secondary mt-0.5 shrink-0" />
           <div className="text-[12.5px] text-text-primary leading-snug">
-            <span className="font-semibold">Methodology:</span> Comparing {sampleMetric.dateRangeCurrent.start}–{sampleMetric.dateRangeCurrent.end} (n={sampleMetric.sampleSizeCurrent} blocks) 
-            against baseline {sampleMetric.dateRangeBaseline.start}–{sampleMetric.dateRangeBaseline.end} (n={sampleMetric.sampleSizeBaseline} blocks).
+            <span className="font-semibold">Methodology:</span> Comparing {isMounted ? sampleMetric.dateRangeCurrent.start : ""}–{isMounted ? sampleMetric.dateRangeCurrent.end : ""} (n={sampleMetric.sampleSizeCurrent} blocks) 
+            against baseline {isMounted ? sampleMetric.dateRangeBaseline.start : ""}–{isMounted ? sampleMetric.dateRangeBaseline.end : ""} (n={sampleMetric.sampleSizeBaseline} blocks).
             {!sizesMatch && (
               <span className="ml-1 text-warning font-semibold">Sample sizes differ significantly — compare trend shapes, not absolute totals.</span>
             )}
@@ -127,7 +134,7 @@ export default function AnalyticsPage() {
             const improved = isImprovement(metric);
             const diff = metric.currentValue - metric.baselineValue;
             const sign = diff > 0 ? "+" : diff < 0 ? "−" : ""; // real sign
-            const pctChange = ((diff / metric.baselineValue) * 100).toFixed(1);
+            const pctChange = metric.baselineValue === 0 ? "0.0" : ((diff / metric.baselineValue) * 100).toFixed(1);
             
             const colorClass = improved ? "text-success" : "text-critical";
             const hexColor = improved ? "#15803D" : "#DC2626";

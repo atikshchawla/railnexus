@@ -1,21 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink: #e8eef1;
-  --color-muted: #91a1a8;
-  --color-canvas: #081216;
-  --color-panel: rgba(18,32,38,0.98);
-  --color-panel-alt: rgba(10,22,26,0.98);
-  --color-line: #26383e;
-  --color-live: #55e6a5;
-  --color-clear: #3ddc84;
-  --color-occupied: #f5a623;
-  --color-blocked: #e5484d;
-  --color-reserved: #5b8def;
-  
-  --color-tdms: #22d3ee;
-  --color-smms: #f87171;
-  --color-tms: #c084fc;
+  --color-canvas: #F5F6F8;
+  --color-surface: #FFFFFF;
+  --color-surface-sunken: #EDEFF2;
+  --color-border-default: #D3D7DC;
+  --color-text-primary: #1B1F24;
+  --color-text-secondary: #5B6470;
+  --color-brand: #0B3C6B;
+  --color-brand-hover: #0A335A;
+  --color-critical: #B3261E;
+  --color-warning: #8A5A00;
+  --color-warning-bg: #FCEFC7;
+  --color-info: #0B5FA5;
+  --color-success: #1E7A34;
+
+  --color-tdms: #0B5FA5;
+  --color-smms: #B3261E;
+  --color-tms: #8A5A00;
 
   --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, monospace;
@@ -23,8 +25,8 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at 70% -10%, #163139 0, #081216 40%, #060d10 100%);
-  color: var(--color-ink);
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   min-width: 320px;
   min-height: 100vh;
@@ -39,13 +41,18 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-line);
+  background: var(--color-border-default);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted);
+  background: var(--color-text-secondary);
 }
 
 .leaflet-container {
-  background: transparent;
+  background: #E3E5E6 !important;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }

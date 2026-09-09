@@ -12,7 +12,7 @@ const STATIONS = [
   { code: 'GYM', name: 'Gudiyattam', lat: 12.9450, lon: 78.8700, km: 85.6 },
   { code: 'AB', name: 'Ambur', lat: 12.7900, lon: 78.7150, km: 113.0 },
   { code: 'VN', name: 'Vaniyambadi', lat: 12.6785, lon: 78.6217, km: 129.1 },
-  { code: 'JTJ', name: 'Jolarpettai Jn', lat: 12.5593, lon: 78.5767, km: 144.5 }, // Adjust JTJ km if not provided (was not in TRAIN_KM but is end)
+  { code: 'JTJ', name: 'Jolarpettai Jn', lat: 12.5593, lon: 78.5767, km: 144.5 },
 ];
 
 const SECTIONS = [
@@ -20,11 +20,11 @@ const SECTIONS = [
 ];
 
 const STATE_COLORS = {
-  clear: '#3ddc84',
-  occupied: '#f5a623',
-  maintenance: '#e5484d',
-  reserved: '#5b8def',
-  caution: '#f5a623',
+  clear: '#1E7A34',
+  occupied: '#8A5A00',
+  maintenance: '#B3261E',
+  reserved: '#0B5FA5',
+  caution: '#8A5A00',
 };
 
 // Auto-fit bounds component
@@ -49,15 +49,15 @@ function getSectionColor(sectionState, fault) {
 // Custom Train Icon
 const createTrainIcon = (status) => {
   const isWaiting = status === 'stopped' || status === 'waiting';
-  const color = isWaiting ? STATE_COLORS.occupied : '#e8eef1';
-  const pulseHtml = isWaiting ? `<div class="absolute -inset-2 rounded-full animate-ping bg-[#f5a623] opacity-75"></div>` : '';
+  const color = isWaiting ? STATE_COLORS.occupied : '#0B3C6B'; // Brand primary for active trains
+  const pulseHtml = isWaiting ? `<div class="absolute -inset-1.5 rounded-full animate-ping bg-[#FCEFC7] opacity-100"></div>` : '';
   
   return L.divIcon({
     className: 'bg-transparent border-none',
     html: `
       <div class="relative flex items-center justify-center w-4 h-4">
         ${pulseHtml}
-        <div class="w-3 h-3 rounded-sm transform rotate-45 z-10" style="background-color: ${color}; border: 1px solid #081216; box-shadow: 0 0 5px ${color};"></div>
+        <div class="w-3 h-3 rounded-sm transform rotate-45 z-10" style="background-color: ${color}; border: 1px solid #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
       </div>
     `,
     iconSize: [16, 16],
@@ -69,19 +69,12 @@ function TrainMarker({ train, network }) {
   // Interpolate position
   const position = useMemo(() => {
     const currentSection = network?.sections?.find(s => s.id === train.heldSectionIds[0] || s.id === train.nextSectionId);
-    
-    // Find stations matching the section
     if (!currentSection) return null;
     
-    // We can use the STATIONS constant directly instead to be robust
     const fromStation = STATIONS.find(s => s.code === currentSection.from.code || s.code === currentSection.id.split('-')[0]);
     const toStation = STATIONS.find(s => s.code === currentSection.to.code || s.code === currentSection.id.split('-')[1]);
     
     if (!fromStation || !toStation) return null;
-    
-    // Raw world feed schema gives train.position_km *relative* to the section
-    // In app.js it was train.km = from.km + train.position_km.
-    // The useDemoState normalizes this into train.km.
     
     const sectionLength = toStation.km - fromStation.km || 1;
     let progress = (train.km - fromStation.km) / sectionLength;
@@ -101,12 +94,12 @@ function TrainMarker({ train, network }) {
       icon={createTrainIcon(train.status)}
       zIndexOffset={1000}
     >
-      <Popup className="train-popup">
-        <div className="font-mono text-xs text-slate-800">
-          <strong>Train {train.id}</strong><br/>
-          Speed: {train.speedKmh.toFixed(0)} km/h<br/>
-          Delay: {train.delayMinutes ? train.delayMinutes.toFixed(1) : 0} min<br/>
-          Status: <span className="uppercase">{train.status}</span>
+      <Popup className="train-popup text-[12px] font-sans">
+        <div className="text-text-primary p-1">
+          <strong className="text-[14px]">Train {train.id}</strong><br/>
+          <span className="text-text-secondary">Speed:</span> <span className="num">{train.speedKmh.toFixed(0)} km/h</span><br/>
+          <span className="text-text-secondary">Delay:</span> <span className="num">{train.delayMinutes ? train.delayMinutes.toFixed(1) : 0} min</span><br/>
+          <span className="text-text-secondary">Status:</span> <span className="uppercase font-medium" style={{ color: train.status === 'stopped' ? STATE_COLORS.occupied : STATE_COLORS.clear }}>{train.status}</span>
         </div>
       </Popup>
     </Marker>
@@ -119,14 +112,13 @@ export default function MapView({ world, network, setSelectedDetail }) {
   const trains = world?.trains || [];
 
   return (
-    <div className="w-full h-full min-h-[500px] bg-[#0a171b] border border-[#26383e] rounded-lg overflow-hidden relative shadow-[0_16px_35px_rgba(0,0,0,0.14)]">
-      <div className="absolute top-0 left-0 right-0 z-[1000] p-4 flex justify-between items-center pointer-events-none">
+    <div className="w-full h-full relative">
+      <div className="absolute top-0 left-0 right-0 z-[1000] p-3 flex justify-between items-center pointer-events-none">
         <div>
-          <span className="text-[10px] font-mono tracking-widest text-[#55e6a5]">LIVE CONTROL OFFICE</span>
-          <h2 className="text-sm font-semibold text-[#e8eef1] m-0">AJJ–JTJ network state</h2>
+          <span className="text-[10px] font-semibold tracking-wider text-brand uppercase bg-surface/80 backdrop-blur px-2 py-0.5 rounded-sm border border-border-default">LIVE MAP</span>
         </div>
-        <div className="text-[10px] font-mono tracking-widest text-[#55e6a5] bg-[#081216]/80 px-2 py-1 rounded border border-[#26383e] pointer-events-auto flex items-center">
-          <span className="w-2 h-2 rounded-full bg-[#55e6a5] shadow-[0_0_8px_#55e6a5] mr-2"></span>
+        <div className="text-[10px] font-semibold tracking-wider text-success bg-surface/90 backdrop-blur px-2 py-1 rounded-sm border border-border-default pointer-events-auto flex items-center shadow-sm">
+          <span className="w-2 h-2 rounded-full bg-success mr-1.5 animate-pulse"></span>
           LIVE FEED
         </div>
       </div>
@@ -141,22 +133,16 @@ export default function MapView({ world, network, setSelectedDetail }) {
         <FitBounds stations={STATIONS} />
         
         <LayersControl position="topright">
-          <LayersControl.BaseLayer checked name="CartoDB Dark Matter">
+          <LayersControl.BaseLayer checked name="Standard OSM">
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satellite (Esri)">
             <TileLayer
               attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            />
-          </LayersControl.BaseLayer>
-          <LayersControl.BaseLayer name="Standard OSM">
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
           </LayersControl.BaseLayer>
         </LayersControl>
@@ -176,9 +162,9 @@ export default function MapView({ world, network, setSelectedDetail }) {
               key={sectionId}
               positions={[[fromSt.lat, fromSt.lon], [toSt.lat, toSt.lon]]}
               color={color}
-              weight={5}
-              lineCap="round"
-              lineJoin="round"
+              weight={6}
+              lineCap="square"
+              lineJoin="miter"
               className="transition-all duration-300 ease-in-out"
               eventHandlers={{
                 click: () => setSelectedDetail({ type: 'section', data: sectionData || { id: sectionId } })
@@ -189,7 +175,6 @@ export default function MapView({ world, network, setSelectedDetail }) {
 
         {/* Station Markers */}
         {STATIONS.map(station => {
-          // Find if any adjacent section is occupied/faulty to color the ring
           const adjSections = sections.filter(s => s.id.includes(station.code));
           const hasFault = adjSections.some(s => s.fault || s.state === 'maintenance');
           const hasOccupied = adjSections.some(s => s.state === 'occupied');
@@ -205,10 +190,10 @@ export default function MapView({ world, network, setSelectedDetail }) {
               key={station.code}
               center={[station.lat, station.lon]}
               radius={6}
-              fillColor="#0b171a"
+              fillColor="#FFFFFF"
               fillOpacity={1}
               color={ringColor}
-              weight={2}
+              weight={3}
               eventHandlers={{
                 click: () => setSelectedDetail({ type: 'station', data: station })
               }}
@@ -216,10 +201,10 @@ export default function MapView({ world, network, setSelectedDetail }) {
               <Tooltip 
                 permanent 
                 direction="bottom" 
-                className="bg-transparent border-none shadow-none text-[#dbe8e9] font-mono text-[11px] font-semibold"
-                offset={[0, 5]}
+                className="bg-transparent border-none shadow-none text-text-primary font-sans text-[11px] font-bold"
+                offset={[0, 6]}
               >
-                <div style={{ textShadow: '0 0 2px #081216, 0 0 2px #081216' }}>
+                <div style={{ textShadow: '0 1px 2px white, 0 -1px 2px white, 1px 0 2px white, -1px 0 2px white' }}>
                   {station.code}
                 </div>
               </Tooltip>

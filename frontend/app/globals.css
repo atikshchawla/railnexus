@@ -19,6 +19,9 @@
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Default theme — CRIS-inspired light palette
+   ═══════════════════════════════════════════════════════════════ */
 :root {
   --bg-canvas: #F5F6F8;
   --bg-surface: #FFFFFF;
@@ -33,6 +36,29 @@
   --status-warning-bg: #FCEFC7;
   --status-info: #0B5FA5;
   --status-success: #1E7A34;
+
+  /* Font scaling — default 1x */
+  --font-scale: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   High-contrast mode (GIGW 3.0 accessibility)
+   Toggled via data-contrast="high" on <html>
+   ═══════════════════════════════════════════════════════════════ */
+[data-contrast="high"] {
+  --bg-canvas: #FFFFFF;
+  --bg-surface: #FFFFFF;
+  --bg-surface-sunken: #F0F0F0;
+  --border-default: #000000;
+  --text-primary: #000000;
+  --text-secondary: #333333;
+  --brand-primary: #00338D;
+  --brand-primary-hover: #002060;
+  --status-critical: #CC0000;
+  --status-warning: #7A4F00;
+  --status-warning-bg: #FFF3CD;
+  --status-info: #004B8D;
+  --status-success: #006B2B;
 }
 
 * {
@@ -43,18 +69,76 @@ body {
   background: var(--bg-canvas);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Tabular numerals for all data */
+/* ═══════════════════════════════════════════════════════════════
+   Font scaling classes (GIGW 3.0: A- A A+)
+   ═══════════════════════════════════════════════════════════════ */
+[data-font-scale="small"] { --font-scale: 0.875; }
+[data-font-scale="normal"] { --font-scale: 1; }
+[data-font-scale="large"] { --font-scale: 1.125; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Tabular numerals for all data
+   ═══════════════════════════════════════════════════════════════ */
 .num {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
 
-/* Scrollbar — minimal */
+/* ═══════════════════════════════════════════════════════════════
+   Skip navigation (GIGW 3.0: keyboard navigation)
+   Visually hidden until focused via Tab
+   ═══════════════════════════════════════════════════════════════ */
+.skip-nav {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 8px 16px;
+  background: var(--brand-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.skip-nav:focus {
+  left: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Screen-reader only utility
+   ═══════════════════════════════════════════════════════════════ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Touch target utility (GIGW 3.0: min 44×44px)
+   ═══════════════════════════════════════════════════════════════ */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Scrollbar — minimal
+   ═══════════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -65,4 +149,30 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--border-default);
   border-radius: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Accessibility Focus States (WCAG 2.1 AA SC 2.4.7)
+   ═══════════════════════════════════════════════════════════════ */
+*:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Badge Contrast Classes (WCAG 2.1 AA — 4.5:1 minimum)
+   ═══════════════════════════════════════════════════════════════ */
+.badge-imr {
+  color: var(--status-critical);
+  background-color: #FCE8E8; /* Contrast > 4.5:1 */
+}
+
+.badge-obs {
+  color: var(--status-warning);
+  background-color: var(--status-warning-bg); /* Contrast ~4.8:1 */
+}
+
+.badge-pm {
+  color: var(--status-info);
+  background-color: #E5F0FA; /* Contrast > 4.5:1 */
 }

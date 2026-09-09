@@ -14,7 +14,7 @@ export default function SearchBar({
   placeholder = "Search by ID, description, or section...",
 }: SearchBarProps) {
   return (
-    <div className="relative">
+    <div role="search" className="relative">
       <Search
         size={14}
         strokeWidth={1.75}
@@ -25,6 +25,7 @@ export default function SearchBar({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        aria-label="Search"
         className="w-full pl-8 pr-3 py-1.5 text-[13px] border border-border-default bg-surface text-text-primary placeholder:text-text-secondary/50"
       />
     </div>

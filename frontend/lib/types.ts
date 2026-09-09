@@ -1,114 +1,129 @@
 /**
- * Core data types for RailNexus.
- * Category / Urgency / Status are ALWAYS three separate fields.
+ * Canonical Data Schema for RailNexus ABP
+ * Do not invent parallel fields. Use exact types provided in the spec.
  */
 
-// --- Category: classification from source system (IMR / OBS / PM) ---
-export type Category = "IMR" | "OBS" | "PM";
+export type Department = "Engg" | "TRD" | "S&T";
+export type Category = "IMR" | "OBS" | "PM"; // Immediate Repair, Observation, Preventive Maintenance
+export type UrgencyTier = "critical" | "warning" | "caution" | "routine";
+export type BlockStatus = "Draft" | "Submitted" | "Under review" | "Approved" | "Active" | "Closed" | "Rejected";
+export type SourceSystem = "TMS" | "SMMS" | "TDMS" | "Manual";
 
-// --- Urgency: AI-computed deadline or score ---
+export interface Location {
+  kmStart: number;
+  kmEnd: number;
+  line: "UP" | "DN" | "UP/DN";
+}
+
 export interface Urgency {
-  score: number;       // 0–100, drives queue order
-  deadline: string;    // e.g. "2 days to SLA breach"
-  level: "critical" | "high" | "medium" | "low";
+  timeToBreachHours: number | null; // null = no SLA/breach clock (e.g. routine PM)
+  tier: UrgencyTier; // derived: <24h="critical", 24-72h="warning", 72-168h="caution", else/null="routine"
 }
 
-// --- Workflow status ---
-export type WorkflowStatus =
-  | "Draft"
-  | "Submitted"
-  | "Under review"
-  | "Approved"
-  | "Scheduled"
-  | "Active"
-  | "Completed"
-  | "Rejected";
-
-// --- Data provenance ---
-export interface Provenance {
-  system: "TMS" | "SMMS" | "TDMS" | "COA" | "Manual";
-  lastSynced: string; // e.g. "2m ago", "15m ago"
+export interface AISuggestion {
+  confidence: number;              // 0-100
+  confidenceBasis: string;         // one sentence: what the % is a confidence IN (e.g. "resolves the corridor conflict without delaying scheduled trains")
+  topFactors: string[];            // ordered, most influential first, 2-4 items
+  recommendedAction: string;       // e.g. "Approve as proposed" / "Shift start by 30 min"
 }
 
-// --- Defect / maintenance backlog item ---
-export interface BacklogItem {
-  id: string;
+export interface ConflictRef {
+  conflictId: string;   // "CONF-001"
+  severity: "high" | "medium" | "low";
+  status: "Unresolved" | "Resolved";
+}
+
+export interface AuditEntry {
+  actor: string;              // display name
+  role: string;               // e.g. "SSE/Ambala"
+  timestamp: string;          // ISO 8601
+  action: "Acknowledged" | "Approved" | "Rejected" | "Merged" | "Sequenced" | "Escalated" | "Promoted to proposal";
+  agreedWithAI: boolean | null; // null if no AI suggestion was involved
+  notes?: string;
+}
+
+export interface BlockRecord {
+  id: string;                 // "BLK-4521"
+  department: Department;
   category: Category;
-  urgency: Urgency;
-  status: WorkflowStatus;
-  department: "Engg" | "TRD" | "S&T";
   description: string;
-  location: string;
-  provenance: Provenance;
-  hasConflict: boolean;
-  conflictWith?: string;
-}
-
-// --- Block request ---
-export interface BlockRequest {
-  id: string;
-  category: Category;
+  location: Location;
+  scheduledWindow: { start: string; end: string }; // ISO 8601
   urgency: Urgency;
-  status: WorkflowStatus;
-  department: "Engg" | "TRD" | "S&T";
-  description: string;
-  section: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  duration: string;
-  confidence: number;
-  shadow: string | null;
-  trainsAffected: { passenger: number; freight: number };
-  hasConflict: boolean;
-  conflictWith?: string;
-  provenance: Provenance;
+  status: BlockStatus;
+  source: { system: SourceSystem; lastUpdated: string };
+  conflict: ConflictRef | null;
+  aiSuggestion: AISuggestion | null;
+  evidence?: { photoUrls: string[]; fieldSurveyId?: string };
+  auditTrail: AuditEntry[];
 }
 
-// --- AI suggestion constraint ---
-export interface AiConstraint {
-  label: string;
-  met: boolean;
-  detail?: string;
+export interface ConflictRecord {
+  id: string;                 // "CONF-001"
+  blockAId: string;
+  blockBId: string;
+  overlapDescription: string; // "Km 248-250 (adjacent, corridor constraint)"
+  status: "Unresolved" | "Resolved";
+  windowStart: string;        // earliest of the two blocks' start times, for urgency ranking
+  resolution?: { action: "Merged" | "Sequenced" | "Escalated"; actor: string; timestamp: string };
 }
 
-// --- AI suggestion ---
-export interface AiSuggestion {
+export interface AnalyticsMetric {
+  name: string;
+  currentValue: number;
+  baselineValue: number;
+  unit: "%" | "hrs" | "count";
+  goodDirection: "up" | "down";   // defines what "improvement" means for this metric
+  weeklySeries: { weekLabel: string; value: number }[]; // required, min 4 points
+  dateRangeCurrent: { start: string; end: string };
+  dateRangeBaseline: { start: string; end: string };
+  sampleSizeCurrent: number;      // e.g. number of blocks/conflicts this metric is computed over
+  sampleSizeBaseline: number;
+}
+
+// ─── Legacy Chart Types (Adapted for BlockPlanChart) ─────────────────
+// These remain ONLY for the chart's internal rendering math.
+// They are populated from BlockRecord.
+export interface Station {
   id: string;
-  summary: string;
-  constraints: AiConstraint[];
-  confidence: number;
-  section: string;
-  scheduledTime: string;
-  department: "Engg" | "TRD" | "S&T";
-  shadowDepts?: string[];
-  notifyDepts?: string[];
+  name: string;
+  km: number;
+  lines: string[];
 }
 
-// --- Conflict ---
-export interface Conflict {
-  id: string;
-  blockA: { id: string; department: string; description: string; section: string; time: string };
-  blockB: { id: string; department: string; description: string; section: string; time: string };
-  overlapKm: string;
-  overlapTime: string;
-  resolved: boolean;
+export interface TrainStop {
+  stationId: string;
+  km: number;
+  time: number;
 }
 
-// --- Train path ---
 export interface TrainPath {
   id: string;
   name: string;
-  time: string;
-  km: [number, number];
-  type: "Superfast" | "Mail/Express" | "Rajdhani" | "Freight";
+  type: "Passenger" | "Freight";
+  stops: TrainStop[];
 }
 
-// --- Timeline block ---
-export interface TimelineBlock {
+export interface ChartBlock {
   id: string;
+  department: string;
+  km_start: number;
+  km_end: number;
+  time_start: number; // relative to midnight in ms
+  time_end: number;
+  status: string;
+  isShadow: boolean;
   label: string;
-  startHour: number;
-  endHour: number;
-  department: "Engg" | "TRD" | "S&T";
-  row: number; // stacking row to prevent overlap
+  priorityTier: any; // "P1-critical" | "P2-high" | "P3-medium" | "P4-low"
+  [key: string]: any;
+}
+
+export interface DerivedConflict {
+  id: string;
+  trainId?: string;
+  blockId: string;
+  intersectionTime: number; // ms since midnight
+  intersectionKm: number;
+  overlapMinutes: number;
+  [key: string]: any;
 }

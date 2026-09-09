@@ -12,9 +12,9 @@ interface DefectsTableProps {
 }
 
 const severityStyle: Record<Defect["type"], string> = {
-  IMR: "text-critical bg-critical/8",
-  OBS: "text-warning bg-warning-bg",
-  PM: "text-info bg-info/8",
+  IMR: "badge-imr",
+  OBS: "badge-obs",
+  PM: "badge-pm",
 };
 
 export default function DefectsTable({ defects }: DefectsTableProps) {
@@ -28,12 +28,12 @@ export default function DefectsTable({ defects }: DefectsTableProps) {
       <table className="w-full text-[13px]">
         <thead>
           <tr className="bg-surface-sunken text-text-secondary text-left">
-            <th className="px-4 py-2 font-medium">Severity</th>
-            <th className="px-4 py-2 font-medium">ID</th>
-            <th className="px-4 py-2 font-medium">Dept</th>
-            <th className="px-4 py-2 font-medium">Location</th>
-            <th className="px-4 py-2 font-medium">Description</th>
-            <th className="px-4 py-2 font-medium text-right">Urgency</th>
+            <th scope="col" className="px-4 py-2 font-medium">Severity</th>
+            <th scope="col" className="px-4 py-2 font-medium">ID</th>
+            <th scope="col" className="px-4 py-2 font-medium">Dept</th>
+            <th scope="col" className="px-4 py-2 font-medium">Location</th>
+            <th scope="col" className="px-4 py-2 font-medium">Description</th>
+            <th scope="col" className="px-4 py-2 font-medium text-right">Urgency</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-default">

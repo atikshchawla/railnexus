@@ -37,7 +37,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
+      <nav aria-label="Main navigation" className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const isActive =
             item.href === "/"
@@ -48,8 +48,9 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={`
-                flex items-center gap-2.5 px-3 py-2 rounded text-[13px]
+                flex items-center gap-2.5 px-3 min-h-[44px] rounded text-[13px]
                 transition-colors duration-100
                 ${
                   isActive

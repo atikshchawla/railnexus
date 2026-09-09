@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-09-09T10:00:00.000Z",
+  "sections": [
+    { "id": "UMB-BAR", "fromStation": "Ambala Cantt", "toStation": "Barara", "fromKm": 238, "toKm": 243, "status": "Clear" },
+    { "id": "BAR-YJ", "fromStation": "Barara", "toStation": "Yamunanagar Jagadhri", "fromKm": 243, "toKm": 248, "status": "Clear" },
+    { "id": "YJ-YWS", "fromStation": "Yamunanagar Jagadhri", "toStation": "Jagadhri Workshop", "fromKm": 248, "toKm": 250, "status": "Clear" },
+    { "id": "YWS-SRE", "fromStation": "Jagadhri Workshop", "toStation": "Saharanpur", "fromKm": 250, "toKm": 252, "status": "Clear" }
+  ],
+  "trains": [
+    { "id": "12005", "name": "Kalka Shatabdi", "line": "UP", "km": 240.2, "speedKmh": 100, "status": "running", "nextSectionId": "BAR-YJ", "heldSectionIds": ["UMB-BAR"] },
+    { "id": "22455", "name": "Rajdhani Express", "line": "DN", "km": 251.2, "speedKmh": 80, "status": "running", "nextSectionId": "YJ-YWS", "heldSectionIds": ["YWS-SRE"] },
+    { "id": "14095", "name": "Himalayan Queen", "line": "UP", "km": 238.5, "speedKmh": 60, "status": "running", "nextSectionId": "UMB-BAR", "heldSectionIds": [] }
+  ]
+}

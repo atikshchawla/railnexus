@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/layout";
 import { computeConflicts } from "@/lib/chart-engine";
@@ -38,6 +38,11 @@ export default function OverviewPage() {
   const { blocks, conflicts, trains: trainPaths } = data;
   const [acknowledgedAlerts, setAcknowledgedAlerts] = useState<Set<string>>(new Set());
   const [expandedReasoning, setExpandedReasoning] = useState<Set<string>>(new Set());
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // ─── Data Prep ─────────────────────────────────────────────────────
 
@@ -340,7 +345,7 @@ export default function OverviewPage() {
         {/* Footer meta line */}
         <div className="text-center pt-2 pb-6">
           <p className="text-[11px] text-text-secondary">
-            Last synced: {formatRelativeTime(new Date().toISOString())} from TMS/SMMS/TDMS
+            Last synced: {isMounted ? formatRelativeTime(new Date().toISOString()) : "Just now"} from TMS/SMMS/TDMS
           </p>
         </div>
       </div>

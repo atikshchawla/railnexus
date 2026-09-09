@@ -30,10 +30,10 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         <div
           className="flex items-center gap-2 pl-3 border-l border-border-default"
           role="status"
-          aria-label="Logged in as SSE, Ambala division"
+          aria-label="Logged in as SSE, Chennai division"
         >
           <User size={16} strokeWidth={1.75} className="text-text-secondary" />
-          <span className="text-[12px] text-text-secondary">SSE / Ambala</span>
+          <span className="text-[12px] text-text-secondary">SSE / Chennai</span>
         </div>
       </div>
     </header>

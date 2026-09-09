@@ -22,3 +22,8 @@ class MovementCreate(BaseModel):
     scheduled_minute: int
     actual_minute: int | None = None
     delay_minutes: float = 0.0
+
+
+class MovementRead(MovementCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: str

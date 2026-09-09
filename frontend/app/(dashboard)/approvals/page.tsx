@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { TopBar } from "@/components/layout";
 import { Pagination } from "@/components/shared";
-import { mockBlocks } from "@/lib/mock-data";
+import { useDashboardData } from "@/lib/dashboard-context";
 import { isBatchEligible } from "@/lib/rules";
 import {
   DepartmentBadge,
@@ -21,11 +21,13 @@ import type { BlockRecord } from "@/lib/types";
 const PAGE_SIZE = 10;
 
 export default function ApprovalsPage() {
+  const { data } = useDashboardData();
+  const { blocks } = data;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [deptFilter, setDeptFilter] = useState("All");
 
-  const pendingApprovals = mockBlocks.filter(b => b.status === "Under review" || b.status === "Submitted")
+  const pendingApprovals = blocks.filter(b => b.status === "Under review" || b.status === "Submitted")
     .sort((a, b) => {
       // Sort by urgency
       const aVal = a.urgency.timeToBreachHours ?? Number.MAX_SAFE_INTEGER;

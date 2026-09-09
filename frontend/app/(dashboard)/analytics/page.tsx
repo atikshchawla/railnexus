@@ -1,7 +1,7 @@
 "use client";
 
 import { TopBar } from "@/components/layout";
-import { mockMetrics } from "@/lib/mock-data";
+import { useDashboardData } from "@/lib/dashboard-context";
 import { isImprovement } from "@/lib/rules";
 import { ArrowDown, ArrowUp, Calendar } from "lucide-react";
 import type { AnalyticsMetric } from "@/lib/types";
@@ -58,7 +58,47 @@ function TableBar({ value, max, colorClass }: { value: number; max: number; colo
 // ─── Main Page ────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
-  const sampleMetric = mockMetrics[0]; // use first metric for global methodology if they match
+  const { data } = useDashboardData();
+  const totalBlocks = data.blocks.length;
+  const liveMetrics: AnalyticsMetric[] = [
+    {
+      name: "Open maintenance requests",
+      currentValue: data.blocks.filter((block) => block.status !== "Closed").length,
+      baselineValue: totalBlocks,
+      unit: "count",
+      goodDirection: "down",
+      weeklySeries: [1, 2, 3, 4].map((week) => ({ weekLabel: `W${week}`, value: totalBlocks })),
+      dateRangeCurrent: { start: "Live", end: new Date().toLocaleDateString() },
+      dateRangeBaseline: { start: "Live", end: new Date().toLocaleDateString() },
+      sampleSizeCurrent: totalBlocks,
+      sampleSizeBaseline: totalBlocks,
+    },
+    {
+      name: "Scored ML requests",
+      currentValue: data.blocks.filter((block) => block.aiSuggestion !== null).length,
+      baselineValue: totalBlocks,
+      unit: "count",
+      goodDirection: "up",
+      weeklySeries: [1, 2, 3, 4].map((week) => ({ weekLabel: `W${week}`, value: data.blocks.filter((block) => block.aiSuggestion !== null).length })),
+      dateRangeCurrent: { start: "Live", end: new Date().toLocaleDateString() },
+      dateRangeBaseline: { start: "Live", end: new Date().toLocaleDateString() },
+      sampleSizeCurrent: totalBlocks,
+      sampleSizeBaseline: totalBlocks,
+    },
+    {
+      name: "Chennai topology sections",
+      currentValue: new Set(data.stations.map((station) => station.id)).size,
+      baselineValue: new Set(data.stations.map((station) => station.id)).size,
+      unit: "count",
+      goodDirection: "up",
+      weeklySeries: [1, 2, 3, 4].map((week) => ({ weekLabel: `W${week}`, value: new Set(data.stations.map((station) => station.id)).size })),
+      dateRangeCurrent: { start: "Live", end: new Date().toLocaleDateString() },
+      dateRangeBaseline: { start: "Live", end: new Date().toLocaleDateString() },
+      sampleSizeCurrent: data.stations.length,
+      sampleSizeBaseline: data.stations.length,
+    },
+  ];
+  const sampleMetric = liveMetrics[0];
   const sizesMatch = Math.abs(sampleMetric.sampleSizeCurrent - sampleMetric.sampleSizeBaseline) / sampleMetric.sampleSizeBaseline <= 0.2;
 
   return (
@@ -83,7 +123,7 @@ export default function AnalyticsPage() {
 
         {/* Metric Cards */}
         <div className="grid grid-cols-3 gap-4">
-          {mockMetrics.map(metric => {
+          {liveMetrics.map(metric => {
             const improved = isImprovement(metric);
             const diff = metric.currentValue - metric.baselineValue;
             const sign = diff > 0 ? "+" : diff < 0 ? "−" : ""; // real sign

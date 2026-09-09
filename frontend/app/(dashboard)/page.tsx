@@ -3,11 +3,6 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/layout";
-import {
-  mockBlocks,
-  mockConflicts,
-  mockTrainPaths,
-} from "@/lib/mock-data";
 import { computeConflicts } from "@/lib/chart-engine";
 import {
   DepartmentBadge,
@@ -24,6 +19,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/rules";
+import { useDashboardData } from "@/lib/dashboard-context";
+import type { ChartBlock, DerivedConflict } from "@/lib/types";
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -31,30 +28,32 @@ function formatTimeOnly(isoString: string) {
   return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function getConflictStatusForTrain(trainId: string, derivedConflicts: any[]) {
+function getConflictStatusForTrain(trainId: string, derivedConflicts: DerivedConflict[]) {
   const conflicts = derivedConflicts.filter(c => c.trainId === trainId);
   return conflicts;
 }
 
 export default function OverviewPage() {
+  const { data, loading, error } = useDashboardData();
+  const { blocks, conflicts, trains: trainPaths } = data;
   const [acknowledgedAlerts, setAcknowledgedAlerts] = useState<Set<string>>(new Set());
   const [expandedReasoning, setExpandedReasoning] = useState<Set<string>>(new Set());
 
   // ─── Data Prep ─────────────────────────────────────────────────────
 
-  const criticalBlocks = mockBlocks.filter(b => b.urgency.tier === "critical" && b.status !== "Closed");
+  const criticalBlocks = blocks.filter(b => b.urgency.tier === "critical" && b.status !== "Closed");
   const unacknowledgedCritical = criticalBlocks.filter(b => !acknowledgedAlerts.has(b.id));
 
-  const unresolvedConflicts = mockConflicts.filter(c => c.status === "Unresolved")
+  const unresolvedConflicts = conflicts.filter(c => c.status === "Unresolved")
     .sort((a, b) => new Date(a.windowStart).getTime() - new Date(b.windowStart).getTime());
 
-  const pendingApprovals = mockBlocks.filter(b => b.status === "Under review" || b.status === "Submitted");
-  const activeApproved = mockBlocks.filter(b => b.status === "Active" || b.status === "Approved");
+  const pendingApprovals = blocks.filter(b => b.status === "Under review" || b.status === "Submitted");
+  const activeApproved = blocks.filter(b => b.status === "Active" || b.status === "Approved");
 
-  const blocksWithAI = mockBlocks.filter(b => b.aiSuggestion !== null && b.status === "Under review");
+  const blocksWithAI = blocks.filter(b => b.aiSuggestion !== null && (b.status === "Under review" || b.status === "Submitted"));
 
-  // Since computeConflicts requires ChartBlock format, we adapt mockBlocks for the engine temporarily
-  const chartBlocks = useMemo(() => mockBlocks.map(b => ({
+  // The chart engine consumes a compact view of each live maintenance block.
+  const chartBlocks = useMemo<ChartBlock[]>(() => blocks.map(b => ({
     id: b.id,
     department: b.department,
     km_start: b.location.kmStart,
@@ -65,9 +64,9 @@ export default function OverviewPage() {
     isShadow: false,
     label: b.description,
     priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low"
-  }) as any), []);
+  }) as ChartBlock), [blocks]);
 
-  const derivedConflicts = useMemo(() => computeConflicts(chartBlocks, mockTrainPaths), [chartBlocks]);
+  const derivedConflicts = useMemo(() => computeConflicts(chartBlocks, trainPaths), [chartBlocks, trainPaths]);
 
   // ─── Handlers ──────────────────────────────────────────────────────
 
@@ -89,8 +88,20 @@ export default function OverviewPage() {
     <>
       <TopBar
         title="Overview"
-        subtitle="Section: Ambala–Saharanpur, Northern Railway"
+        subtitle="Section: Chennai division, Southern Railway"
       />
+
+      {error && (
+        <div className="flex items-center justify-between gap-4 border-b border-warning bg-warning/10 px-4 py-2 text-[12px] text-text-primary">
+          <span>Backend sync failed: {error}</span>
+          <span className="font-medium text-warning">API offline</span>
+        </div>
+      )}
+      {loading && (
+        <div className="border-b border-border-default bg-surface-sunken px-4 py-2 text-[12px] text-text-secondary">
+          Syncing live maintenance, topology, train, and ML records...
+        </div>
+      )}
 
       {/* Critical alert banner (Rule R4 / R5) */}
       {criticalBlocks.length > 0 && (
@@ -127,7 +138,7 @@ export default function OverviewPage() {
           <Link href="/backlog" className="bg-surface p-3 hover:bg-surface-sunken/50 transition-colors">
             <p className="text-[12px] text-text-secondary mb-0.5">Open backlog items</p>
             <p className={`text-[26px] font-semibold leading-none num ${criticalBlocks.length > 0 ? "text-critical" : "text-text-primary"}`}>
-              {mockBlocks.length}
+              {blocks.length}
             </p>
             <p className="text-[11px] text-text-secondary mt-1">{criticalBlocks.length} critical</p>
           </Link>
@@ -168,8 +179,8 @@ export default function OverviewPage() {
             </div>
             <div className="divide-y divide-border-default">
               {unresolvedConflicts.slice(0, 2).map((c) => {
-                const blockA = mockBlocks.find(b => b.id === c.blockAId)!;
-                const blockB = mockBlocks.find(b => b.id === c.blockBId)!;
+                const blockA = blocks.find(b => b.id === c.blockAId)!;
+                const blockB = blocks.find(b => b.id === c.blockBId)!;
                 return (
                   <Link key={c.id} href={`/conflicts#${c.id}`} className="block px-3 py-2.5 hover:bg-surface-sunken/50">
                     <div className="flex items-center gap-2 mb-1">
@@ -237,6 +248,15 @@ export default function OverviewPage() {
                       />
                     </div>
 
+                    {block.mlPrediction && (
+                      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border-default border border-border-default text-[11px]">
+                        <div className="bg-surface px-2.5 py-2"><dt className="text-text-secondary">Failure risk</dt><dd className="num font-semibold">{(block.mlPrediction.failureRiskProbability * 100).toFixed(1)}%</dd></div>
+                        <div className="bg-surface px-2.5 py-2"><dt className="text-text-secondary">Duration</dt><dd className="num font-semibold">{Math.round(block.mlPrediction.predictedDurationMinutes)} min</dd></div>
+                        <div className="bg-surface px-2.5 py-2"><dt className="text-text-secondary">Overrun risk</dt><dd className="num font-semibold">{(block.mlPrediction.overrunProbability * 100).toFixed(1)}%</dd></div>
+                        <div className="bg-surface px-2.5 py-2"><dt className="text-text-secondary">Train delay</dt><dd className="num font-semibold">{Math.round(block.mlPrediction.totalDelayMinutes)} min</dd></div>
+                      </dl>
+                    )}
+
                     <div className="flex items-center justify-end gap-2 pt-1">
                       {!isEligible && (
                         <span className="text-[11px] text-critical font-medium mr-auto">
@@ -279,7 +299,7 @@ export default function OverviewPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default">
-              {mockTrainPaths.map((t) => {
+              {trainPaths.map((t) => {
                 const conflicts = getConflictStatusForTrain(t.id, derivedConflicts);
                 const isFreight = t.type === "Freight";
                 
@@ -295,7 +315,7 @@ export default function OverviewPage() {
                     <td className="px-3 py-2 num font-medium">{t.id}</td>
                     <td className="px-3 py-2">{t.name}</td>
                     <td className="px-3 py-2 text-right num">
-                      {new Date(new Date().setHours(0,0,0,0) + t.stops[0].time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {t.stops[0] ? new Date(new Date().setHours(0,0,0,0) + t.stops[0].time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
                     </td>
                     <td className="px-3 py-2">
                       {conflicts.length > 0 ? (

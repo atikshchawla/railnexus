@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { TopBar } from "@/components/layout";
 import { SearchBar } from "@/components/shared";
-import { mockConflicts, mockBlocks, mockTrainPaths } from "@/lib/mock-data";
+import { useDashboardData } from "@/lib/dashboard-context";
 import { computeConflicts } from "@/lib/chart-engine";
 import { DepartmentBadge, UrgencyBorder } from "@/components/shared";
 import { AlertTriangle, ArrowRightLeft, Merge, Eye, ArrowUpRight } from "lucide-react";
@@ -30,19 +30,23 @@ function getConflictSeverityColor(severity: string) {
 
 function PreviewModal({
   conflict,
+  blocks,
+  trainPaths,
   actionName,
   onClose,
   onConfirm
 }: {
   conflict: ConflictRecord;
+  blocks: ReturnType<typeof useDashboardData>["data"]["blocks"];
+  trainPaths: ReturnType<typeof useDashboardData>["data"]["trains"];
   actionName: "Merge" | "Sequence";
   onClose: () => void;
   onConfirm: () => void;
 }) {
   const [confirmText, setConfirmText] = useState("");
   
-  const blockA = mockBlocks.find(b => b.id === conflict.blockAId)!;
-  const blockB = mockBlocks.find(b => b.id === conflict.blockBId)!;
+  const blockA = blocks.find(b => b.id === conflict.blockAId)!;
+  const blockB = blocks.find(b => b.id === conflict.blockBId)!;
 
   // Compute combined window
   const startA = new Date(blockA.scheduledWindow.start).getTime();
@@ -66,7 +70,7 @@ function PreviewModal({
     status: "active", isShadow: false, label: "Combined", priorityTier: "P1-critical" as any
   }];
   
-  const newlyAffectedTrains = computeConflicts(mockChartBlocks, mockTrainPaths).map(c => mockTrainPaths.find(t => t.id === c.trainId)!);
+  const newlyAffectedTrains = computeConflicts(mockChartBlocks, trainPaths).map(c => trainPaths.find(t => t.id === c.trainId)!);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
@@ -136,13 +140,15 @@ function PreviewModal({
 // ─── Main Page ────────────────────────────────────────────────────────
 
 export default function ConflictsPage() {
+  const { data } = useDashboardData();
+  const { blocks, conflicts, trains: trainPaths } = data;
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
   const [severityFilter, setSeverityFilter] = useState("All");
   
   const [previewAction, setPreviewAction] = useState<{conflict: ConflictRecord, action: "Merge" | "Sequence"} | null>(null);
 
-  const filtered = mockConflicts.filter(c => {
+  const filtered = conflicts.filter(c => {
     // Quick search
     if (search && !c.id.toLowerCase().includes(search.toLowerCase()) && !c.overlapDescription.toLowerCase().includes(search.toLowerCase())) return false;
     
@@ -151,8 +157,8 @@ export default function ConflictsPage() {
     if (severityFilter !== "All" && severity !== severityFilter) return false;
 
     // Dept filter
-    const bA = mockBlocks.find(b => b.id === c.blockAId)!;
-    const bB = mockBlocks.find(b => b.id === c.blockBId)!;
+    const bA = blocks.find(b => b.id === c.blockAId)!;
+    const bB = blocks.find(b => b.id === c.blockBId)!;
     if (deptFilter !== "All" && bA.department !== deptFilter && bB.department !== deptFilter) return false;
     
     return true;
@@ -171,6 +177,8 @@ export default function ConflictsPage() {
       {previewAction && (
         <PreviewModal 
           conflict={previewAction.conflict} 
+          blocks={blocks}
+          trainPaths={trainPaths}
           actionName={previewAction.action}
           onClose={() => setPreviewAction(null)}
           onConfirm={() => { alert(`Audit Log: ${previewAction.action} executed on ${previewAction.conflict.id}`); setPreviewAction(null); }}
@@ -203,8 +211,8 @@ export default function ConflictsPage() {
           <h2 className="text-[14px] font-semibold text-text-primary mb-3">Unresolved conflicts ({unresolved.length})</h2>
           <div className="space-y-3">
             {unresolved.map(c => {
-              const bA = mockBlocks.find(b => b.id === c.blockAId)!;
-              const bB = mockBlocks.find(b => b.id === c.blockBId)!;
+              const bA = blocks.find(b => b.id === c.blockAId)!;
+              const bB = blocks.find(b => b.id === c.blockBId)!;
               const severityTier = getConflictSeverityColor(c.id === "CONF-001" ? "high" : c.id === "CONF-002" ? "medium" : "low") as any;
               
               return (
@@ -285,8 +293,8 @@ export default function ConflictsPage() {
             <h2 className="text-[14px] font-semibold text-text-primary mb-3">Recently resolved ({resolved.length})</h2>
             <div className="space-y-2 opacity-75 hover:opacity-100 transition-opacity">
               {resolved.map(c => {
-                const bA = mockBlocks.find(b => b.id === c.blockAId)!;
-                const bB = mockBlocks.find(b => b.id === c.blockBId)!;
+                const bA = blocks.find(b => b.id === c.blockAId)!;
+                const bB = blocks.find(b => b.id === c.blockBId)!;
                 return (
                   <div key={c.id} className="bg-surface border border-border-default px-4 py-3 flex items-center gap-4">
                     <div className="w-24 text-[12px] font-mono font-medium text-text-primary line-through decoration-text-secondary/50">{c.id}</div>

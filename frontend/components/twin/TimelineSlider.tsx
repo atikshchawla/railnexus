@@ -54,7 +54,7 @@ export default function TimelineSlider({ blocks, trains }: TimelineSliderProps) 
           24-hour timeline
         </h3>
         <p className="text-[11px] text-text-secondary">
-          Section Km 238–252, Ambala–Saharanpur
+          Chennai division live section
         </p>
       </div>
 

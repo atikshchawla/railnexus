@@ -4,18 +4,29 @@ import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/layout";
 import { DateNav, BlockPlanChart, DetailPanel, ChartLegend, RegisterView } from "@/components/plan";
-import { mockStations, mockBlocks, mockTrainPaths } from "@/lib/mock-data";
+import { optimizeRequests } from "@/lib/api";
+import type { OptimizerResponse } from "@/lib/api";
+import { useDashboardData } from "@/lib/dashboard-context";
 import { computeConflicts, DAY_MS, HOUR_MS, clampView } from "@/lib/chart-engine";
 import type { ChartBlock, DerivedConflict } from "@/lib/types";
 
 type ViewMode = "chart" | "register";
 
+function formatMinute(minute: number | null | undefined) {
+  if (minute === null || minute === undefined) return "--:--";
+  return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+}
+
 function BlockPlanPageContent() {
   const searchParams = useSearchParams();
+  const { data } = useDashboardData();
+  const { stations, trains } = data;
+  const [optimization, setOptimization] = useState<OptimizerResponse | null>(null);
+  const [optimizationError, setOptimizationError] = useState<string | null>(null);
 
   // ─── State ─────────────────────────────────────────────
   const [blocks, setBlocks] = useState<ChartBlock[]>(() => 
-    mockBlocks.map(b => ({
+    data.blocks.map(b => ({
       id: b.id,
       department: b.department,
       km_start: b.location.kmStart,
@@ -26,7 +37,7 @@ function BlockPlanPageContent() {
       isShadow: false,
       label: b.description,
       priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low"
-    }) as any)
+    }) as ChartBlock)
   );
   const [viewStart, setViewStart] = useState(0);
   const [viewEnd, setViewEnd] = useState(DAY_MS);
@@ -39,11 +50,79 @@ function BlockPlanPageContent() {
     return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) * 1000;
   });
 
+  useEffect(() => {
+    const requestIds = data.blocks.map((block) => block.id);
+    if (requestIds.length === 0) return;
+    let active = true;
+    optimizeRequests(requestIds)
+      .then((result) => {
+        if (active) setOptimization(result);
+      })
+      .catch((reason: unknown) => {
+        if (active) setOptimizationError(reason instanceof Error ? reason.message : "Unable to optimize the live block plan");
+      });
+    return () => {
+      active = false;
+    };
+  }, [data.blocks]);
+
   // ─── Derived conflicts (computed, never stored) ─────────
+  const optimizedBlocks = useMemo<ChartBlock[]>(() => {
+    if (!optimization) return [];
+    const today = new Date().setHours(0, 0, 0, 0);
+    return optimization.selected_blocks.map((candidate, index) => {
+      const members = blocks.filter((block) => candidate.request_ids.includes(block.id));
+      const first = members[0];
+      const start = (candidate.scheduled_start_minute ?? 0) * 60_000;
+      const end = (candidate.scheduled_end_minute ?? (candidate.scheduled_start_minute ?? 0) + candidate.predicted_duration_minutes) * 60_000;
+      return {
+        id: `OPT-${candidate.section_id}-${index + 1}`,
+        department: first?.department ?? "Engg",
+        km_start: Math.min(...members.map((member) => member.km_start)),
+        km_end: Math.max(...members.map((member) => member.km_end)),
+        time_start: start,
+        time_end: end,
+        status: "approved",
+        isShadow: false,
+        label: `Optimized possession (${candidate.request_ids.length} requests)`,
+        priorityTier: candidate.urgency_level === "high" ? "P1-critical" : "P2-high",
+        candidate,
+        today,
+      };
+    });
+  }, [blocks, optimization]);
+
+  const planBlocks = optimizedBlocks.length > 0 ? optimizedBlocks : blocks;
+  const displayTrains = useMemo(() => {
+    const selected = optimization?.selected_blocks[0];
+    const start = (selected?.scheduled_start_minute ?? -1) * 60_000;
+    const end = (selected?.scheduled_end_minute ?? -1) * 60_000;
+    return trains.map((train) => ({
+      ...train,
+      status: train.stops.some((stop) => stop.time >= start && stop.time <= end) ? "diverted" as const : "scheduled" as const,
+    }));
+  }, [optimization, trains]);
+
   const conflicts: DerivedConflict[] = useMemo(
-    () => computeConflicts(blocks, mockTrainPaths),
-    [blocks]
+    () => computeConflicts(planBlocks, displayTrains),
+    [displayTrains, planBlocks]
   );
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBlocks(data.blocks.map(b => ({
+      id: b.id,
+      department: b.department,
+      km_start: b.location.kmStart,
+      km_end: b.location.kmEnd,
+      time_start: new Date(b.scheduledWindow.start).getTime() - new Date().setHours(0, 0, 0, 0),
+      time_end: new Date(b.scheduledWindow.end).getTime() - new Date().setHours(0, 0, 0, 0),
+      status: b.status.toLowerCase(),
+      isShadow: false,
+      label: b.description,
+      priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low",
+    })));
+  }, [data.blocks]);
 
   // ─── NOW line — recompute every 30 seconds ─────────────
   useEffect(() => {
@@ -60,8 +139,8 @@ function BlockPlanPageContent() {
     if (!focus) return;
 
     // Find the element
-    const block = blocks.find(b => b.id === focus);
-    const train = mockTrainPaths.find(t => t.id === focus);
+    const block = planBlocks.find(b => b.id === focus);
+    const train = displayTrains.find(t => t.id === focus);
     const conflict = conflicts.find(c => c.id === focus);
 
     if (block) {
@@ -95,7 +174,7 @@ function BlockPlanPageContent() {
       setViewMode("chart");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [conflicts, displayTrains, planBlocks, searchParams]);
 
   // ─── Callbacks ─────────────────────────────────────────
   const handleViewChange = useCallback((s: number, e: number) => {
@@ -133,8 +212,8 @@ function BlockPlanPageContent() {
     handleSelect(id, type);
 
     // Center view
-    const block = blocks.find(b => b.id === id);
-    const train = mockTrainPaths.find(t => t.id === id);
+    const block = planBlocks.find(b => b.id === id);
+    const train = displayTrains.find(t => t.id === id);
     const conflict = conflicts.find(c => c.id === id);
 
     let mid = DAY_MS / 2;
@@ -145,7 +224,7 @@ function BlockPlanPageContent() {
     const [s, e] = clampView(mid - 3 * HOUR_MS, mid + 3 * HOUR_MS);
     setViewStart(s);
     setViewEnd(e);
-  }, [blocks, conflicts, handleSelect]);
+  }, [conflicts, displayTrains, handleSelect, planBlocks]);
 
   // Chart width estimation for responsive detail panel layout
   const chartWidthEst = typeof window !== "undefined" ? Math.max(600, window.innerWidth - 210 - 110 - (selectedId ? 320 : 0)) : 900;
@@ -154,8 +233,19 @@ function BlockPlanPageContent() {
     <>
       <TopBar
         title="Block plan"
-        subtitle="Section: Ambala Cantt–Saharanpur — all departments"
+        subtitle="Section: Chennai division — all departments"
       />
+
+      {optimizationError && <div className="border-b border-critical bg-critical/10 px-4 py-2 text-[12px] text-critical">Optimizer unavailable: {optimizationError}</div>}
+      {optimization && (
+        <div className="grid grid-cols-4 gap-px bg-border-default border-b border-border-default text-[12px]">
+          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Optimized blocks</span><strong className="num ml-2">{optimization.totals.optimized_block_count}</strong></div>
+          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Possession saving</span><strong className="num ml-2">{Number(optimization.totals.possession_saving_minutes).toFixed(1)} min</strong></div>
+          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Scheduled window</span><strong className="num ml-2">{formatMinute(optimization.selected_blocks[0]?.scheduled_start_minute)} - {formatMinute(optimization.selected_blocks[0]?.scheduled_end_minute)}</strong></div>
+          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Train impact</span><strong className="num ml-2">{Math.round(optimization.selected_blocks[0]?.train_impact_minutes ?? 0)} min</strong></div>
+          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Train routing</span><strong className="ml-2">{displayTrains.filter((train) => train.status === "diverted").length} diverted / {displayTrains.filter((train) => train.status === "scheduled").length} scheduled</strong></div>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-h-0 bg-canvas">
         {/* ─── Toolbar ──────────────────────────────────────── */}
@@ -211,9 +301,9 @@ function BlockPlanPageContent() {
           {viewMode === "chart" ? (
             <div className="flex-1 min-w-0 p-3">
               <BlockPlanChart
-                stations={mockStations}
-                blocks={blocks}
-                trains={mockTrainPaths}
+                stations={stations}
+                blocks={planBlocks}
+                trains={displayTrains}
                 conflicts={conflicts}
                 viewStart={viewStart}
                 viewEnd={viewEnd}
@@ -227,8 +317,8 @@ function BlockPlanPageContent() {
             </div>
           ) : (
             <RegisterView
-              blocks={blocks}
-              trains={mockTrainPaths}
+              blocks={planBlocks}
+              trains={displayTrains}
               conflicts={conflicts}
               onFocusElement={handleFocusElement}
             />
@@ -239,10 +329,10 @@ function BlockPlanPageContent() {
             <DetailPanel
               selectedId={selectedId}
               selectedType={selectedType}
-              blocks={blocks}
-              trains={mockTrainPaths}
+              blocks={planBlocks}
+              trains={displayTrains}
               conflicts={conflicts}
-              stations={mockStations}
+              stations={stations}
               onClose={handleClose}
               onApplyResolution={handleApplyResolution}
               onApproveBlock={handleApproveBlock}

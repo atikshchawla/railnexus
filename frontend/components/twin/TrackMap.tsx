@@ -28,7 +28,7 @@ export default function TrackMap({ sections }: TrackMapProps) {
           Track schematic
         </h3>
         <p className="text-[11px] text-text-secondary">
-          Ambala Cantt–Saharanpur section, UP line
+          Chennai division live topology
         </p>
       </div>
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/layout";
 import { SearchBar, Pagination } from "@/components/shared";
-import { mockBlocks } from "@/lib/mock-data";
+import { useDashboardData } from "@/lib/dashboard-context";
 import { Plus, ArrowRight, Square, Circle, Triangle } from "lucide-react";
 import type { Category, Department, BlockRecord } from "@/lib/types";
 import {
@@ -38,14 +38,15 @@ function CategoryIcon({ category, dept }: { category: Category; dept: Department
 }
 
 export default function BacklogPage() {
+  const { data } = useDashboardData();
+  const { blocks } = data;
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [page, setPage] = useState(1);
   const [promotedBlocks, setPromotedBlocks] = useState<Set<string>>(new Set());
 
-  // Use mockBlocks, treating it as the backlog source
-  const filtered = mockBlocks.filter((item) => {
+  const filtered = blocks.filter((item) => {
     if (deptFilter !== "All" && item.department !== deptFilter) return false;
     if (categoryFilter !== "All" && item.category !== categoryFilter) return false;
     if (search) {

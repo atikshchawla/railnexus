@@ -384,9 +384,9 @@ export default function BlockPlanChart({
                 {/* Visible line */}
                 <polyline
                   points={pts} fill="none"
-                  stroke="var(--text-primary)"
+                  stroke={train.status === "diverted" ? "var(--status-warning)" : "var(--text-primary)"}
                   strokeWidth={isSelected ? 3 : 1.5}
-                  strokeDasharray={train.type === "Freight" ? "8,5" : "none"}
+                  strokeDasharray={train.status === "diverted" || train.type === "Freight" ? "8,5" : "none"}
                   opacity={isSelected ? 1 : 0.55}
                 />
                 {/* Permanent label — every line must be labeled */}
@@ -396,7 +396,7 @@ export default function BlockPlanChart({
                   fontWeight={isSelected ? 700 : 500}
                   className="pointer-events-none halo-text"
                 >
-                  {train.id} {train.name}
+                  {train.id} {train.name}{train.status === "diverted" ? " (DIVERTED)" : ""}
                 </text>
               </g>
             );

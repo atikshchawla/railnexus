@@ -27,6 +27,16 @@ export interface AISuggestion {
   recommendedAction: string;       // e.g. "Approve as proposed" / "Shift start by 30 min"
 }
 
+export interface MLPrediction {
+  failureRiskProbability: number;
+  priorityScore: number;
+  urgencyLevel: string;
+  predictedDurationMinutes: number;
+  overrunProbability: number;
+  trainsAffected: number;
+  totalDelayMinutes: number;
+}
+
 export interface ConflictRef {
   conflictId: string;   // "CONF-001"
   severity: "high" | "medium" | "low";
@@ -54,6 +64,7 @@ export interface BlockRecord {
   source: { system: SourceSystem; lastUpdated: string };
   conflict: ConflictRef | null;
   aiSuggestion: AISuggestion | null;
+  mlPrediction?: MLPrediction;
   evidence?: { photoUrls: string[]; fieldSurveyId?: string };
   auditTrail: AuditEntry[];
 }
@@ -101,6 +112,8 @@ export interface TrainPath {
   id: string;
   name: string;
   type: "Passenger" | "Freight";
+  status?: "scheduled" | "diverted";
+  delayMinutes?: number;
   stops: TrainStop[];
 }
 

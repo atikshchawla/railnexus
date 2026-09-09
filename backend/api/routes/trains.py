@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.api.schemas.train import MovementCreate, TrainCreate, TrainRead
+from backend.api.schemas.train import MovementCreate, MovementRead, TrainCreate, TrainRead
 from backend.database.connection import get_db
 from backend.database.models.train import TmsMovement, Train
 from backend.repositories.train_repository import TrainRepository
@@ -24,3 +25,8 @@ def create_train(payload: TrainCreate, db: Session = Depends(get_db)):
 def create_movement(payload: MovementCreate, db: Session = Depends(get_db)):
     movement = repository.add_movement(db, TmsMovement(**payload.model_dump()))
     return {"id": movement.id, "status": "recorded"}
+
+
+@router.get("/movements", response_model=list[MovementRead])
+def list_movements(db: Session = Depends(get_db)):
+    return list(db.scalars(select(TmsMovement).order_by(TmsMovement.scheduled_minute)))

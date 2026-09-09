@@ -22,6 +22,7 @@ class MaintenanceCreate(BaseModel):
 
 class MaintenanceRead(MaintenanceCreate):
     model_config = ConfigDict(from_attributes=True)
+    model_features: dict = Field(default_factory=dict, validation_alias="request_data")
     id: str
     status: str
     created_at: datetime

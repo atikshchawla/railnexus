@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from ai_ml.optimizer import CorridorWindow, MaintenanceRequest, OptimizerWeights, check_compatibility, optimize_requests
 
-from backend.api.routes import assets, maintenance, optimizer, predictions, shadow_blocks, topology, trains
+from backend.api.routes import assets, demo, maintenance, optimizer, predictions, shadow_blocks, topology, trains
 from backend.database.connection import create_tables
 from backend.utils.config import get_settings
 from backend.utils.logging import configure_logging
@@ -37,6 +37,7 @@ app.include_router(trains.router, prefix="/api")
 app.include_router(shadow_blocks.router, prefix="/api")
 app.include_router(optimizer.router, prefix="/api")
 app.include_router(topology.router, prefix="/api")
+app.include_router(demo.router, prefix="/api")
 
 
 class LegacyRequestPayload(BaseModel):

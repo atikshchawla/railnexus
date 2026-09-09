@@ -3,11 +3,8 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/layout";
-import {
-  mockBlocks,
-  mockConflicts,
-  mockTrainPaths,
-} from "@/lib/mock-data";
+import { mockTrainPaths } from "@/lib/mock-data";
+import { useBlocks, useConflicts } from "@/hooks/useBackendData";
 import { computeConflicts } from "@/lib/chart-engine";
 import {
   DepartmentBadge,
@@ -39,33 +36,35 @@ function getConflictStatusForTrain(trainId: string, derivedConflicts: any[]) {
 export default function OverviewPage() {
   const [acknowledgedAlerts, setAcknowledgedAlerts] = useState<Set<string>>(new Set());
   const [expandedReasoning, setExpandedReasoning] = useState<Set<string>>(new Set());
+  const { blocks: allBlocks } = useBlocks();
+  const { conflicts: allConflicts } = useConflicts();
 
   // ─── Data Prep ─────────────────────────────────────────────────────
 
-  const criticalBlocks = mockBlocks.filter(b => b.urgency.tier === "critical" && b.status !== "Closed");
-  const unacknowledgedCritical = criticalBlocks.filter(b => !acknowledgedAlerts.has(b.id));
+  const criticalBlocks = allBlocks.filter((b: any) => b.urgency?.tier === "critical" && b.status !== "Closed");
+  const unacknowledgedCritical = criticalBlocks.filter((b: any) => !acknowledgedAlerts.has(b.id));
 
-  const unresolvedConflicts = mockConflicts.filter(c => c.status === "Unresolved")
-    .sort((a, b) => new Date(a.windowStart).getTime() - new Date(b.windowStart).getTime());
+  const unresolvedConflicts = allConflicts.filter((c: any) => c.status === "Unresolved")
+    .sort((a: any, b: any) => new Date(a.windowStart).getTime() - new Date(b.windowStart).getTime());
 
-  const pendingApprovals = mockBlocks.filter(b => b.status === "Under review" || b.status === "Submitted");
-  const activeApproved = mockBlocks.filter(b => b.status === "Active" || b.status === "Approved");
+  const pendingApprovals = allBlocks.filter((b: any) => b.status === "Under review" || b.status === "Submitted");
+  const activeApproved = allBlocks.filter((b: any) => b.status === "Active" || b.status === "Approved");
 
-  const blocksWithAI = mockBlocks.filter(b => b.aiSuggestion !== null && b.status === "Under review");
+  const blocksWithAI = allBlocks.filter((b: any) => b.aiSuggestion !== null && b.status === "Under review");
 
-  // Since computeConflicts requires ChartBlock format, we adapt mockBlocks for the engine temporarily
-  const chartBlocks = useMemo(() => mockBlocks.map(b => ({
+  // Since computeConflicts requires ChartBlock format, we adapt blocks for the engine temporarily
+  const chartBlocks = useMemo(() => allBlocks.map((b: any) => ({
     id: b.id,
     department: b.department,
-    km_start: b.location.kmStart,
-    km_end: b.location.kmEnd,
-    time_start: new Date(b.scheduledWindow.start).getTime() - new Date().setHours(0,0,0,0), // relative to midnight
-    time_end: new Date(b.scheduledWindow.end).getTime() - new Date().setHours(0,0,0,0),
-    status: b.status.toLowerCase(),
+    km_start: b.location?.kmStart ?? 0,
+    km_end: b.location?.kmEnd ?? 0,
+    time_start: new Date(b.scheduledWindow?.start ?? 0).getTime() - new Date().setHours(0,0,0,0),
+    time_end: new Date(b.scheduledWindow?.end ?? 0).getTime() - new Date().setHours(0,0,0,0),
+    status: b.status?.toLowerCase() ?? "submitted",
     isShadow: false,
     label: b.description,
-    priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low"
-  }) as any), []);
+    priorityTier: b.urgency?.tier === "critical" ? "P1-critical" : "P4-low"
+  }) as any), [allBlocks]);
 
   const derivedConflicts = useMemo(() => computeConflicts(chartBlocks, mockTrainPaths), [chartBlocks]);
 
@@ -127,7 +126,7 @@ export default function OverviewPage() {
           <Link href="/backlog" className="bg-surface p-3 hover:bg-surface-sunken/50 transition-colors">
             <p className="text-[12px] text-text-secondary mb-0.5">Open backlog items</p>
             <p className={`text-[26px] font-semibold leading-none num ${criticalBlocks.length > 0 ? "text-critical" : "text-text-primary"}`}>
-              {mockBlocks.length}
+              {allBlocks.length}
             </p>
             <p className="text-[11px] text-text-secondary mt-1">{criticalBlocks.length} critical</p>
           </Link>
@@ -167,9 +166,9 @@ export default function OverviewPage() {
               </Link>
             </div>
             <div className="divide-y divide-border-default">
-              {unresolvedConflicts.slice(0, 2).map((c) => {
-                const blockA = mockBlocks.find(b => b.id === c.blockAId)!;
-                const blockB = mockBlocks.find(b => b.id === c.blockBId)!;
+              {unresolvedConflicts.slice(0, 2).map((c: any) => {
+                const blockA = allBlocks.find((b: any) => b.id === c.blockAId)!;
+                const blockB = allBlocks.find((b: any) => b.id === c.blockBId)!;
                 return (
                   <Link key={c.id} href={`/conflicts#${c.id}`} className="block px-3 py-2.5 hover:bg-surface-sunken/50">
                     <div className="flex items-center gap-2 mb-1">

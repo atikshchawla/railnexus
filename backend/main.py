@@ -8,17 +8,19 @@ from pydantic import BaseModel, Field
 
 from ai_ml.optimizer import CorridorWindow, MaintenanceRequest, OptimizerWeights, check_compatibility, optimize_requests
 
-from backend.api.routes import assets, maintenance, optimizer, predictions, shadow_blocks, topology, trains, blocks, conflicts, live
+from backend.api.routes import analytics, assets, maintenance, optimizer, predictions, shadow_blocks, topology, trains, blocks, conflicts, live
 from backend.database.connection import create_tables
 from backend.utils.config import get_settings
 from backend.utils.logging import configure_logging
 from backend.scripts.seed_db import seed
+from backend.services.pipeline_loader import load_pipeline
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging()
     create_tables()
+    load_pipeline()
     seed()
     yield
 
@@ -42,6 +44,7 @@ app.include_router(topology.router, prefix="/api")
 app.include_router(blocks.router, prefix="/api")
 app.include_router(conflicts.router, prefix="/api")
 app.include_router(live.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
 
 
 class LegacyRequestPayload(BaseModel):

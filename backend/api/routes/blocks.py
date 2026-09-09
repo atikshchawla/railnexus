@@ -113,3 +113,28 @@ async def approve_block(block_id: str, db: Session = Depends(get_db)):
     asyncio.create_task(broadcaster.broadcast(message))
     
     return {"status": "success"}
+
+
+@router.post("/blocks/{block_id}/reject")
+async def reject_block(block_id: str, db: Session = Depends(get_db)):
+    block = db.query(BlockRecord).filter(BlockRecord.id == block_id).first()
+    if not block:
+        raise HTTPException(status_code=404, detail="Block not found")
+
+    block.status = "Rejected"
+
+    audit = create_audit_entry(
+        "Operator", "Controller", "Rejected",
+        agreed_with_ai=False if block.aiSuggestion else None,
+    )
+
+    new_audit = list(block.auditTrail or [])
+    new_audit.append(audit)
+    block.auditTrail = new_audit
+
+    db.commit()
+
+    message = {"type": "BLOCK_UPDATED", "payload": {"id": block.id, "status": "Rejected"}}
+    asyncio.create_task(broadcaster.broadcast(message))
+
+    return {"status": "success"}

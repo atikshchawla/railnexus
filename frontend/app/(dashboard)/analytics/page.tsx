@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { TopBar } from "@/components/layout";
 import { mockMetrics } from "@/lib/mock-data";
+import { fetchAnalytics } from "@/lib/api-client";
 import { isImprovement } from "@/lib/rules";
-import { ArrowDown, ArrowUp, Calendar } from "lucide-react";
+import { ArrowDown, ArrowUp, Calendar, BarChart3 } from "lucide-react";
 import type { AnalyticsMetric } from "@/lib/types";
 
 // ─── Sparkline Components ────────────────────────────────────────────
@@ -58,7 +60,13 @@ function TableBar({ value, max, colorClass }: { value: number; max: number; colo
 // ─── Main Page ────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
-  const sampleMetric = mockMetrics[0]; // use first metric for global methodology if they match
+  const [backendData, setBackendData] = useState<any>(null);
+
+  useEffect(() => {
+    fetchAnalytics().then(setBackendData).catch(() => {});
+  }, []);
+
+  const sampleMetric = mockMetrics[0];
   const sizesMatch = Math.abs(sampleMetric.sampleSizeCurrent - sampleMetric.sampleSizeBaseline) / sampleMetric.sampleSizeBaseline <= 0.2;
 
   return (
@@ -80,6 +88,32 @@ export default function AnalyticsPage() {
             )}
           </div>
         </div>
+
+        {/* Backend Live Analytics */}
+        {backendData && (
+          <div className="grid grid-cols-4 gap-px bg-border-default border border-border-default">
+            <div className="bg-surface p-3">
+              <p className="text-[11px] text-text-secondary mb-0.5 uppercase tracking-wider font-semibold">Total blocks (DB)</p>
+              <p className="text-[24px] font-semibold text-text-primary leading-none num">{backendData.live?.totalBlocks ?? 0}</p>
+              <p className="text-[11px] text-text-secondary mt-1">{backendData.live?.criticalCount ?? 0} critical</p>
+            </div>
+            <div className="bg-surface p-3">
+              <p className="text-[11px] text-text-secondary mb-0.5 uppercase tracking-wider font-semibold">Historical Executed</p>
+              <p className="text-[24px] font-semibold text-text-primary leading-none num">{backendData.historical?.totalExecuted ?? 0}</p>
+              <p className="text-[11px] text-text-secondary mt-1">From block history</p>
+            </div>
+            <div className="bg-surface p-3">
+              <p className="text-[11px] text-text-secondary mb-0.5 uppercase tracking-wider font-semibold">Avg Actual Duration</p>
+              <p className="text-[24px] font-semibold text-text-primary leading-none num">{backendData.historical?.avgActualMinutes ?? 0} min</p>
+              <p className="text-[11px] text-text-secondary mt-1">vs {backendData.historical?.avgPlannedMinutes ?? 0} planned</p>
+            </div>
+            <div className="bg-surface p-3">
+              <p className="text-[11px] text-text-secondary mb-0.5 uppercase tracking-wider font-semibold">Overrun Rate</p>
+              <p className={`text-[24px] font-semibold leading-none num ${(backendData.historical?.overrunRate ?? 0) > 20 ? "text-critical" : "text-text-primary"}`}>{backendData.historical?.overrunRate ?? 0}%</p>
+              <p className="text-[11px] text-text-secondary mt-1">Blocks exceeding plan by &gt;10%</p>
+            </div>
+          </div>
+        )}
 
         {/* Metric Cards */}
         <div className="grid grid-cols-3 gap-4">

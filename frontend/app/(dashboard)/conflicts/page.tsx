@@ -3,7 +3,8 @@
 import { useState, useMemo } from "react";
 import { TopBar } from "@/components/layout";
 import { SearchBar } from "@/components/shared";
-import { mockConflicts, mockBlocks, mockTrainPaths } from "@/lib/mock-data";
+import { mockTrainPaths } from "@/lib/mock-data";
+import { useBlocks, useConflicts } from "@/hooks/useBackendData";
 import { computeConflicts } from "@/lib/chart-engine";
 import { DepartmentBadge, UrgencyBorder } from "@/components/shared";
 import { AlertTriangle, ArrowRightLeft, Merge, Eye, ArrowUpRight } from "lucide-react";
@@ -32,17 +33,19 @@ function PreviewModal({
   conflict,
   actionName,
   onClose,
-  onConfirm
+  onConfirm,
+  blocks,
 }: {
   conflict: ConflictRecord;
   actionName: "Merge" | "Sequence";
   onClose: () => void;
   onConfirm: () => void;
+  blocks: any[];
 }) {
   const [confirmText, setConfirmText] = useState("");
   
-  const blockA = mockBlocks.find(b => b.id === conflict.blockAId)!;
-  const blockB = mockBlocks.find(b => b.id === conflict.blockBId)!;
+  const blockA = blocks.find((b: any) => b.id === conflict.blockAId)!;
+  const blockB = blocks.find((b: any) => b.id === conflict.blockBId)!;
 
   // Compute combined window
   const startA = new Date(blockA.scheduledWindow.start).getTime();
@@ -139,10 +142,11 @@ export default function ConflictsPage() {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
   const [severityFilter, setSeverityFilter] = useState("All");
-  
   const [previewAction, setPreviewAction] = useState<{conflict: ConflictRecord, action: "Merge" | "Sequence"} | null>(null);
+  const { blocks: allBlocks } = useBlocks();
+  const { conflicts: allConflicts } = useConflicts();
 
-  const filtered = mockConflicts.filter(c => {
+  const filtered = allConflicts.filter((c: any) => {
     // Quick search
     if (search && !c.id.toLowerCase().includes(search.toLowerCase()) && !c.overlapDescription.toLowerCase().includes(search.toLowerCase())) return false;
     
@@ -151,8 +155,8 @@ export default function ConflictsPage() {
     if (severityFilter !== "All" && severity !== severityFilter) return false;
 
     // Dept filter
-    const bA = mockBlocks.find(b => b.id === c.blockAId)!;
-    const bB = mockBlocks.find(b => b.id === c.blockBId)!;
+    const bA = allBlocks.find((b: any) => b.id === c.blockAId)!;
+    const bB = allBlocks.find((b: any) => b.id === c.blockBId)!;
     if (deptFilter !== "All" && bA.department !== deptFilter && bB.department !== deptFilter) return false;
     
     return true;
@@ -172,6 +176,7 @@ export default function ConflictsPage() {
         <PreviewModal 
           conflict={previewAction.conflict} 
           actionName={previewAction.action}
+          blocks={allBlocks}
           onClose={() => setPreviewAction(null)}
           onConfirm={() => { alert(`Audit Log: ${previewAction.action} executed on ${previewAction.conflict.id}`); setPreviewAction(null); }}
         />
@@ -203,8 +208,8 @@ export default function ConflictsPage() {
           <h2 className="text-[14px] font-semibold text-text-primary mb-3">Unresolved conflicts ({unresolved.length})</h2>
           <div className="space-y-3">
             {unresolved.map(c => {
-              const bA = mockBlocks.find(b => b.id === c.blockAId)!;
-              const bB = mockBlocks.find(b => b.id === c.blockBId)!;
+              const bA = allBlocks.find((b: any) => b.id === c.blockAId)!;
+              const bB = allBlocks.find((b: any) => b.id === c.blockBId)!;
               const severityTier = getConflictSeverityColor(c.id === "CONF-001" ? "high" : c.id === "CONF-002" ? "medium" : "low") as any;
               
               return (
@@ -285,8 +290,8 @@ export default function ConflictsPage() {
             <h2 className="text-[14px] font-semibold text-text-primary mb-3">Recently resolved ({resolved.length})</h2>
             <div className="space-y-2 opacity-75 hover:opacity-100 transition-opacity">
               {resolved.map(c => {
-                const bA = mockBlocks.find(b => b.id === c.blockAId)!;
-                const bB = mockBlocks.find(b => b.id === c.blockBId)!;
+                const bA = allBlocks.find((b: any) => b.id === c.blockAId)!;
+                const bB = allBlocks.find((b: any) => b.id === c.blockBId)!;
                 return (
                   <div key={c.id} className="bg-surface border border-border-default px-4 py-3 flex items-center gap-4">
                     <div className="w-24 text-[12px] font-mono font-medium text-text-primary line-through decoration-text-secondary/50">{c.id}</div>

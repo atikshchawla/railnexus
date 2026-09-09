@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/layout";
 import { SearchBar, Pagination } from "@/components/shared";
-import { mockBlocks } from "@/lib/mock-data";
+import { useBlocks } from "@/hooks/useBackendData";
 import { Plus, ArrowRight, Square, Circle, Triangle } from "lucide-react";
 import type { Category, Department, BlockRecord } from "@/lib/types";
 import {
@@ -43,9 +43,10 @@ export default function BacklogPage() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [page, setPage] = useState(1);
   const [promotedBlocks, setPromotedBlocks] = useState<Set<string>>(new Set());
+  const { blocks: allBlocks } = useBlocks();
 
-  // Use mockBlocks, treating it as the backlog source
-  const filtered = mockBlocks.filter((item) => {
+  // Use live blocks, treating it as the backlog source
+  const filtered = allBlocks.filter((item: any) => {
     if (deptFilter !== "All" && item.department !== deptFilter) return false;
     if (categoryFilter !== "All" && item.category !== categoryFilter) return false;
     if (search) {

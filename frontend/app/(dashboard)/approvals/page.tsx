@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { TopBar } from "@/components/layout";
 import { Pagination } from "@/components/shared";
-import { mockBlocks } from "@/lib/mock-data";
+import { useBlocks } from "@/hooks/useBackendData";
+import { approveBlock, rejectBlock } from "@/lib/api-client";
 import { isBatchEligible } from "@/lib/rules";
 import {
   DepartmentBadge,
@@ -24,8 +25,9 @@ export default function ApprovalsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [deptFilter, setDeptFilter] = useState("All");
+  const { blocks: allBlocks, reload } = useBlocks();
 
-  const pendingApprovals = mockBlocks.filter(b => b.status === "Under review" || b.status === "Submitted")
+  const pendingApprovals = allBlocks.filter((b: any) => b.status === "Under review" || b.status === "Submitted")
     .sort((a, b) => {
       // Sort by urgency
       const aVal = a.urgency.timeToBreachHours ?? Number.MAX_SAFE_INTEGER;
@@ -62,9 +64,15 @@ export default function ApprovalsPage() {
     }
   });
 
-  const handleAction = (id: string, action: string, e: React.MouseEvent) => {
+  const handleAction = async (id: string, action: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    alert(`Audit Log: ${action} on ${id}. Timestamp: ${new Date().toISOString()}`);
+    try {
+      if (action === "Approve") await approveBlock(id);
+      else if (action === "Reject") await rejectBlock(id);
+      reload();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
   };
 
   return (

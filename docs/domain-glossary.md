@@ -1,7 +1,7 @@
 # Domain Glossary — RailNexus ABP
 ### Living document. Check and update before encoding any domain assumption into code.
 
-Last updated: 2026-09-04
+Last updated: 2026-09-09
 
 ---
 
@@ -228,4 +228,64 @@ Last updated: 2026-09-04
 - **Full form:** National Train Enquiry System
 - **Source:** cris.org.in — Tier 2
 - **Confidence:** ✅ Confirmed
+- **Last checked:** 2026-09-04
 - **Drives logic?** Not directly — referenced as an integration point for train timetable data.
+
+---
+
+## Member B department roles (TMS / TDMS / SMMS as request-raising modules)
+- **Meaning:** In the demo's Member B request system (per `demo-work-split-v3.md`), the three CRIS system names are reused as *fictional department modules* with roles that do NOT match their real systems:
+  - **TMS role = train-movement / running-status requester** (raises "train delayed" requests). This is NOT what CRIS TMS does — that is a Track Management System for the P.Way/Engineering department (see TMS entry above). In reality, train running status belongs to operating/control (COA).
+  - **TDMS role = section block-entry requester** (raises "train needs the next section" requests). CRIS TDMS is a Traction Distribution maintenance platform (OHE/PSI). Block-entry/line-clear is technically an operating-domain action, not a TDMS system feature.
+  - **SMMS role = maintenance/fault requester AND section-status owner** (raises fault block requests and, per the split doc, "owns section status" for outcome display). CRIS SMMS is the Signalling (S&T) maintenance platform; section status/outcome display is not its real function (that is BDMS/COA territory).
+- **Source:** Project-defined (team demo design, `demo-work-split-v3.md` rev 3) — **needs team ratification**
+- **Confidence:** ⚠️ Project-defined — conflicts with confirmed glossary entries above
+- **Last checked:** 2026-09-09
+- **Drives logic?** Yes — department tags on every Member B request, per-department views, and the `Department` zod enum are built on these roles.
+- **⚠️ Requirements:** These department *roles* are a demo fiction that diverges from the confirmed IR meanings. If evaluators probe, the accurate story is: "real request-raising rides on COA/BDMS and each department's own platform; in the demo we map three canonical request kinds onto the three CRIS names for a clean one-department-one-request-type narrative." Ratify or rename before presenting as real.
+
+---
+
+## Request kinds in the Member B schema
+- **running_status request:** raised by a train that is running late (delay past a threshold) and requests priority handling. Type tag: `running_status`. Raised by the TMS role.
+- **section_entry request:** raised when a train is about to occupy a section it does not yet hold (its `nextSectionId` is not in its `heldSectionIds`). Type tag: `section_entry`. Raised by the TDMS role. One request per (train, section) pair while it remains unanswered.
+- **maintenance_block request:** raised against a section with a physical fault, requesting an emergency maintenance block. Type tag: `maintenance_block`. Raised by the SMMS role.
+- **Source:** Project-defined (frozen with team on Day 1, `demo-work-split-v3.md`) — **needs team ratification**
+- **Confidence:** ⚠️ Project-defined
+- **Last checked:** 2026-09-09
+- **Drives logic?** Yes — central to the ABP request schema in `backend/src/types.ts`.
+
+---
+
+## Delay threshold for running-status requests
+- **Meaning:** A train is considered "expressively late" (and a running-status request fires) once its `delayMinutes` reaches this threshold.
+- **Chosen value:** 10 minutes (`DELAY_THRESHOLD_MINUTES` in `backend/src/departments/tms.ts`).
+- **Source:** Project-defined — **needs team ratification**. Not sourced from an IR rule; reflective of common punctuality-tracking practice (some systems flag > 15 min; IR typically measures punctuality at 15/30 min buckets for official statistics). Pick a defensible number or cite an IR practice before finalizing.
+- **Confidence:** ⚠️ Project-defined
+- **Last checked:** 2026-09-09
+- **Drives logic?** Yes — engine gate in TMS.
+
+---
+
+## Reflection (ABP decision → section state)
+- **Meaning:** After ABP resolves a request, Member B writes the outcome onto the section's own state so every department (and the COA dashboard) sees it. The SMMS role owns this.
+- **State ladder:** `Clear → Caution → Approved → Reserved → Queued → Rerouted → Block active` (section states in the Member B snapshot contract). Decision ⇒ state mapping:
+  - `approved` + maintenance request ⇒ `Block active`
+  - `approved` + section-entry request ⇒ `Approved`
+  - `reserved`, `queued`, `rerouted` ⇒ same-named state
+  - `rejected` ⇒ leave state unchanged
+  - running-status decisions never change section state
+- **Source:** Project-defined (frozen Day 1) — **needs team ratification**
+- **Confidence:** ⚠️ Project-defined
+- **Last checked:** 2026-09-09
+- **Drives logic?** Yes — `reflections` in `backend/src/store.ts` and every section badge in the `/live` page.
+
+---
+
+## Query injector
+- **Meaning:** The judge-facing tool from `demo-work-split-v3.md` §3.4 ("if you keep it"). Lets a judge (or demo user) raise a request directly into ABP, so ABP can be probed with arbitrary inputs — and the resulting request is **indistinguishable** from one the three departments raised on their own: same common schema, same `REQ-<DEPARTMENT>-<n>` id sequence, flows through the same decide→reflect path.
+- **Interface:** `POST /api/inject` (`backend/src/server.ts`) accepting `{ department, type, sectionId, trainId?, description?, km?, payload? }`. Validated: `department`/`type` must be the enums and `sectionId` must be a known corridor section; payload/trainId are otherwise free (deliberate — proves ABP handles odd inputs). Wired end-to-end by `backend/src/pipeline.ts` `inject()`; frontend `/live` has an "Inject request" panel (`components/live/InjectRequest.tsx`) that drives it.
+- **Source:** Project-defined (`demo-work-split-v3.md` §3.4) — **needs team ratification** (kept or dropped per the "if you keep it" clause)
+- **Confidence:** ⚠️ Project-defined
+- **Last checked:** 2026-09-09
+- **Drives logic?** Yes — `queryInjectSchema` in `backend/src/types.ts`; the panel is part of the `/live` COA view.

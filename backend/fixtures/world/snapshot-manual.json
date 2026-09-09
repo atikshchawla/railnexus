@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-09-09T11:00:00.000Z",
+  "trains": [
+    {
+      "id": "SMP-3301",
+      "name": "UP Demo Local",
+      "line": "UP",
+      "km": 240.5,
+      "speedKmh": 45,
+      "status": "delayed",
+      "delayMinutes": 22,
+      "nextSectionId": "BAR-YJ",
+      "heldSectionIds": ["UMB-BAR"]
+    },
+    {
+      "id": "SMP-4402",
+      "name": "Down Demo Freight",
+      "line": "DN",
+      "km": 250.5,
+      "speedKmh": 60,
+      "status": "running",
+      "nextSectionId": "YWS-SRE",
+      "heldSectionIds": ["YJ-YWS", "BAR-YJ"]
+    }
+  ],
+  "sections": [
+    {
+      "id": "BAR-YJ",
+      "fromStation": "Barara",
+      "toStation": "Yamunanagar Jagadhri",
+      "fromKm": 243,
+      "toKm": 248,
+      "status": "Clear",
+      "fault": "OHE dropper snapped"
+    }
+  ]
+}

@@ -19,6 +19,7 @@ const navItems = [
   { label: "Conflicts", href: "/conflicts", icon: AlertTriangle },
   { label: "Approvals", href: "/approvals", icon: CheckSquare },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  { label: "Live loop", href: "/live", icon: Radio },
 ];
 
 export default function Sidebar() {

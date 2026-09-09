@@ -35,16 +35,14 @@ describe("end-to-end loop over the replay fixtures", () => {
     expect(store.getSectionState("MCN-KPD")).toBe("Block active");
 
     const frame3 = await pipeline.process(snapshot3 as never);
-    const rerouted = frame3.decisions.find((d) => d.decision === "rerouted");
-    expect(rerouted).toBeDefined();
-    expect(rerouted?.sectionId).toBe("MCN-KPD");
-    expect(store.getSectionState("MCN-KPD")).toBe("Rerouted");
+    expect(frame3.decisions.find((d) => d.sectionId === "MCN-KPD")).toBeUndefined();
+    expect(store.getSectionState("MCN-KPD")).toBe("Block active");
 
     // No new SMMS request while the section already sits under a block.
     expect(frame3.requests.filter((r) => r.department === "SMMS")).toHaveLength(0);
 
     const state = store.snapshotState();
-    expect(state.sections).toHaveLength(4);
+    expect(state.sections).toHaveLength(8);
     expect(state.departments.TDMS.requests.length).toBeGreaterThan(0);
   });
 

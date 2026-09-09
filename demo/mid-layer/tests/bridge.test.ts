@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { WorldBridge } from "../src/bridge.js";
+import { Gateway } from "../src/bridge.js";
 
 const snapshot = {
+  tick: 1,
   timestamp: "2026-09-09T10:00:00.000Z",
   trains: [],
-  sections: [],
+  sections: [{ section_id: "AJJ-SHU", occupant_train_id: null, state: "clear", fault_reason: null }],
 };
 
 describe("mid-layer world bridge", () => {
@@ -14,11 +15,12 @@ describe("mid-layer world bridge", () => {
       if (init) calls.push(init);
       return new Response(JSON.stringify(snapshot), { status: 200 });
     });
-    const bridge = new WorldBridge({ worldUrl: "http://world/feed", memberBUrl: "http://member-b/api/ingest", fetchImpl });
-    await bridge.pullAndForward();
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-    expect(calls[0]?.method).toBe("POST");
-    expect(JSON.parse(String(calls[0]?.body))).toEqual(snapshot);
-    expect(bridge.current().lastSeenAt).toBe(snapshot.timestamp);
+    const gateway = new Gateway({ worldUrl: "http://world/world-state", mockAbp: true, fetchImpl });
+    await gateway.syncWorld();
+    const decision = await gateway.submit({ request_id: "00000000-0000-4000-8000-000000000001", department: "TDMS", type: "section_entry", train_id: null, section_id: "AJJ-SHU", description: "test", raised_at: snapshot.timestamp });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(0);
+    expect(decision.request_id).toBe("00000000-0000-4000-8000-000000000001");
+    expect(gateway.getDecisions()).toHaveLength(1);
   });
 });

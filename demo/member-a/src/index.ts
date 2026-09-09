@@ -10,4 +10,4 @@ const server = app.listen(port);
 
 setInterval(() => simulator.tick(), tickMs);
 await once(server, "listening");
-console.log(`[member-a] world listening on http://localhost:${port}/feed`);
+console.log(`[member-a] world listening on http://localhost:${port}/world-state`);

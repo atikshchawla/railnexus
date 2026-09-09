@@ -80,7 +80,7 @@ describe("Member B HTTP API", () => {
         departments: { TDMS: { requests: unknown[] } };
         corridor: string;
       };
-      expect(state.sections).toHaveLength(4);
+      expect(state.sections).toHaveLength(8);
       expect(state.departments.TDMS.requests).toHaveLength(3);
       expect(state.corridor).toContain("Arakkonam");
 

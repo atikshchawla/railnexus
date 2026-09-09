@@ -4,8 +4,9 @@ import { z } from "zod";
 import type { WorldSimulator } from "./simulator.js";
 
 const faultSchema = z.object({
-  sectionId: z.string(),
-  description: z.string().min(1).default("Physical track unavailable"),
+  section_id: z.string(),
+  type: z.string().min(1),
+  duration_ticks: z.number().int().positive(),
 });
 
 export function buildApp(simulator: WorldSimulator): Express {
@@ -24,8 +25,8 @@ export function buildApp(simulator: WorldSimulator): Express {
 
   app.get("/health", (_req, res) => res.json({ ok: true, service: "member-a-world", corridor: simulator.network().corridor }));
   app.get("/network", (_req, res) => res.json(simulator.network()));
+  app.get("/world-state", (_req, res) => res.json(simulator.snapshot()));
   app.get("/feed", (_req, res) => res.json(simulator.snapshot()));
-  app.get("/api/world", (_req, res) => res.json(simulator.snapshot()));
   app.post("/tick", (_req, res) => res.json(simulator.tick()));
   app.post("/faults", (req, res) => {
     const parsed = faultSchema.safeParse(req.body);
@@ -34,7 +35,7 @@ export function buildApp(simulator: WorldSimulator): Express {
       return;
     }
     try {
-      res.status(201).json(simulator.setFault(parsed.data.sectionId, parsed.data.description));
+      res.status(201).json(simulator.setFault(parsed.data.section_id, parsed.data.type, parsed.data.duration_ticks));
     } catch (error) {
       res.status(404).json({ error: "unknown_section", message: String(error) });
     }

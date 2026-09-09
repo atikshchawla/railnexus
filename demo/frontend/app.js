@@ -1,11 +1,11 @@
 const CONFIG = { world: "http://localhost:9001", bridge: "http://localhost:9002", memberB: "http://localhost:8787" };
-const state = { network: null, world: null, memberB: null, tick: 0, paused: false, previousSections: new Map(), eventLog: [] };
+const state = { network: null, world: null, rawWorld: null, memberB: null, tick: 0, paused: false, previousSections: new Map(), eventLog: [] };
 
 const $ = (id) => document.getElementById(id);
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
 const sectionColor = (section, reflected = null) => {
-  if (section.fault || reflected === "Block active") return "#f36b67";
-  if (reflected === "Reserved") return "#69a8ff";
+  if (section.fault || reflected === "Block active" || reflected === "maintenance") return "#f36b67";
+  if (reflected === "Reserved" || reflected === "reserved") return "#69a8ff";
   if (section.occupiedBy) return "#f1b84b";
   return "#52d18b";
 };
@@ -50,6 +50,24 @@ function fillNetworkControls() {
   $("trainInput").innerHTML = '<option value="">No train</option>' + trains.map((train) => `<option value="${escapeHtml(train.id)}">${escapeHtml(train.id)} · ${escapeHtml(train.name)}</option>`).join("");
 }
 
+function normalizeWorld(raw, network) {
+  const byId = new Map(network.sections.map((section) => [section.id, section]));
+  return {
+    tick: raw.tick,
+    timestamp: raw.timestamp,
+    trains: raw.trains.map((train) => {
+      const section = byId.get(train.section_id);
+      return { id: train.train_id, name: train.train_id, km: (section?.from.km || 0) + train.position_km, speedKmh: train.speed_kmph, status: train.status === "waiting" ? "stopped" : train.status, delayMinutes: train.delay_min, nextSectionId: train.section_id, heldSectionIds: [train.section_id] };
+    }),
+    sections: raw.sections.map((section) => { const topology = byId.get(section.section_id); return { id: section.section_id, fromStation: topology?.from.name || section.section_id.split("-")[0], toStation: topology?.to.name || section.section_id.split("-")[1], fromKm: topology?.from.km || 0, toKm: topology?.to.km || 0, status: section.state === "maintenance" ? "Caution" : "Clear", occupiedBy: section.occupant_train_id || undefined, fault: section.fault_reason || undefined }; }),
+  };
+}
+
+function normalizeMemberB(raw) {
+  const requests = ["TMS", "TDMS", "SMMS"].flatMap((department) => (raw.departments?.[department]?.requests || []).map((request) => ({ id: request.request_id, department, type: request.type, trainId: request.train_id, sectionId: request.section_id, description: request.description, raisedAt: request.raised_at, status: "decided" })));
+  return { ...raw, departments: { TMS: { requests: requests.filter((request) => request.department === "TMS") }, TDMS: { requests: requests.filter((request) => request.department === "TDMS") }, SMMS: { requests: requests.filter((request) => request.department === "SMMS") } }, decisions: (raw.decisions || []).map((decision) => ({ requestId: decision.request_id, decision: decision.status, sectionId: decision.section_id, sectionState: decision.resulting_state })) };
+}
+
 function renderWorld() {
   const world = state.world;
   if (!world) return;
@@ -59,7 +77,7 @@ function renderWorld() {
   $("sectionCount").textContent = `${world.sections.length} sections`;
   $("trainTable").innerHTML = world.trains.map((train) => `<tr><td>${escapeHtml(train.id)}</td><td>${escapeHtml(train.heldSectionIds[0] || train.nextSectionId)}</td><td class="status-${train.status}">${escapeHtml(train.status)}</td><td>${train.delayMinutes ? `${train.delayMinutes.toFixed(0)}m` : "0m"}</td><td>${train.speedKmh.toFixed(0)} km/h</td></tr>`).join("");
   $("sectionTable").innerHTML = world.sections.map((section) => `<tr><td>${escapeHtml(section.id)}</td><td>${escapeHtml(section.occupiedBy || "—")}</td><td class="state-${sectionState(section).toLowerCase()}">${escapeHtml(sectionState(section))}</td><td>${escapeHtml(section.fault || "—")}</td></tr>`).join("");
-  $("rawFeed").textContent = JSON.stringify(world, null, 2);
+  $("rawFeed").textContent = JSON.stringify(state.rawWorld || world, null, 2);
   renderMap($("worldMap"), state.network, world);
 }
 
@@ -81,8 +99,9 @@ function renderRequests() {
 async function getJson(url) { const response = await fetch(url, { cache: "no-store" }); if (!response.ok) throw new Error(`${response.status} ${url}`); return response.json(); }
 async function refresh() {
   try {
-    const [network, world, memberB] = await Promise.all([getJson(`${CONFIG.world}/network`), getJson(`${CONFIG.bridge}/world`), getJson(`${CONFIG.memberB}/api/state`)]);
-    state.network = network; state.world = world; state.memberB = memberB; state.tick += 1;
+    const [network, rawWorld, rawMemberB] = await Promise.all([getJson(`${CONFIG.world}/network`), getJson(`${CONFIG.bridge}/world-state`), getJson(`${CONFIG.memberB}/api/state`)]);
+    const world = normalizeWorld(rawWorld, network);
+    state.network = network; state.world = world; state.rawWorld = rawWorld; state.memberB = normalizeMemberB(rawMemberB); state.tick = rawWorld.tick;
     $("connectionBadge").textContent = "LIVE"; $("connectionBadge").className = "connection online";
     $("corridorLabel").textContent = network.corridor;
     $("lastUpdate").textContent = `Updated ${new Date(world.timestamp).toLocaleTimeString()}`;
@@ -96,8 +115,8 @@ async function refresh() {
 
 async function postJson(url, body) { const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); if (!response.ok) throw new Error(`${response.status}`); return response.json(); }
 $("injectForm").addEventListener("submit", async (event) => { event.preventDefault(); const message = $("injectMessage"); try { await postJson(`${CONFIG.memberB}/api/inject`, { department: $("departmentInput").value, type: $("typeInput").value, sectionId: $("sectionInput").value, trainId: $("trainInput").value || undefined }); message.textContent = "Request submitted to ABP."; await refresh(); } catch (error) { message.textContent = `Request failed: ${error.message}`; } });
-$("faultButton").addEventListener("click", async () => { try { await postJson(`${CONFIG.world}/faults`, { sectionId: "MCN-KPD", description: "OHE isolator failure" }); await refresh(); } catch (error) { $("lastUpdate").textContent = `Fault failed: ${error.message}`; } });
-$("worldFaultButton").addEventListener("click", async () => { try { await postJson(`${CONFIG.world}/faults`, { sectionId: $("faultSectionInput").value, description: $("faultDescriptionInput").value }); await refresh(); } catch (error) { $("lastUpdate").textContent = `Fault failed: ${error.message}`; } });
+$("faultButton").addEventListener("click", async () => { try { await postJson(`${CONFIG.world}/faults`, { section_id: "MCN-KPD", type: "OHE isolator failure", duration_ticks: 30 }); await refresh(); } catch (error) { $("lastUpdate").textContent = `Fault failed: ${error.message}`; } });
+$("worldFaultButton").addEventListener("click", async () => { try { await postJson(`${CONFIG.world}/faults`, { section_id: $("faultSectionInput").value, type: $("faultDescriptionInput").value, duration_ticks: 30 }); await refresh(); } catch (error) { $("lastUpdate").textContent = `Fault failed: ${error.message}`; } });
 $("clearFaultButton").addEventListener("click", async () => { try { await fetch(`${CONFIG.world}/faults/${encodeURIComponent($("faultSectionInput").value)}`, { method: "DELETE" }); await refresh(); } catch (error) { $("lastUpdate").textContent = `Clear failed: ${error.message}`; } });
 $("pauseButton").addEventListener("click", () => { state.paused = !state.paused; $("pauseButton").textContent = state.paused ? "Resume feed" : "Pause feed"; });
 $("worldPauseButton").addEventListener("click", () => { state.paused = !state.paused; $("worldPauseButton").textContent = state.paused ? "Resume" : "Pause"; });

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchBlocks, fetchConflicts } from "@/lib/api-client";
 
-/** Shared hook that loads blocks from the backend and falls back to mock data. */
+/** Shared hook for the backend block register. */
 export function useBlocks() {
   const [blocks, setBlocks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,11 +16,8 @@ export function useBlocks() {
       setBlocks(data);
       setError(null);
     } catch (err: any) {
-      console.warn("Backend unavailable, using mock data:", err.message);
-      // Import mock data as fallback
-      const { mockBlocks } = await import("@/lib/mock-data");
-      setBlocks(mockBlocks);
-      setError(err.message);
+      setBlocks([]);
+      setError(err.message ?? "Failed to load blocks");
     } finally {
       setLoading(false);
     }
@@ -33,7 +30,7 @@ export function useBlocks() {
   return { blocks, loading, error, reload };
 }
 
-/** Shared hook that loads conflicts from the backend with mock fallback. */
+/** Shared hook for backend conflict records. */
 export function useConflicts() {
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,10 +43,8 @@ export function useConflicts() {
       setConflicts(data);
       setError(null);
     } catch (err: any) {
-      console.warn("Backend unavailable, using mock conflicts:", err.message);
-      const { mockConflicts } = await import("@/lib/mock-data");
-      setConflicts(mockConflicts);
-      setError(err.message);
+      setConflicts([]);
+      setError(err.message ?? "Failed to load conflicts");
     } finally {
       setLoading(false);
     }

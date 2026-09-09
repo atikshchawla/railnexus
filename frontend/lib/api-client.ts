@@ -1,65 +1,100 @@
-const API_BASE = "http://localhost:8000/api";
+import type { BlockRecord, ConflictRecord } from "./types";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000/api";
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || `Request failed: ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
 
 // ── Blocks ─────────────────────────────────────────────────
 
 export async function fetchBlocks() {
-  const res = await fetch(`${API_BASE}/blocks`);
-  if (!res.ok) throw new Error("Failed to fetch blocks");
-  return res.json();
+  return request<BlockRecord[]>("/blocks");
 }
 
 export async function approveBlock(id: string) {
-  const res = await fetch(`${API_BASE}/blocks/${id}/approve`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to approve block");
-  return res.json();
+  return request(`/blocks/${id}/approve`, { method: "POST" });
 }
 
 export async function rejectBlock(id: string) {
-  const res = await fetch(`${API_BASE}/blocks/${id}/reject`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to reject block");
-  return res.json();
+  return request(`/blocks/${id}/reject`, { method: "POST" });
+}
+
+export async function fetchMaintenance(status?: string) {
+  return request(`/maintenance${status ? `?status=${encodeURIComponent(status)}` : ""}`);
+}
+
+export async function createMaintenance(payload: Record<string, unknown>) {
+  return request("/maintenance", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function predictMaintenance(id: string) {
+  return request(`/maintenance/${id}/predict`, { method: "POST" });
+}
+
+export async function optimizeMaintenance(payload: {
+  request_ids: string[];
+  max_group_size?: number;
+  max_spatial_gap_km?: number;
+  weights?: Record<string, number>;
+}) {
+  return request("/optimizer/optimize", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function fetchPredictions() {
+  return request("/predictions");
+}
+
+export async function fetchAssets(sectionId?: string) {
+  return request(`/assets${sectionId ? `?section_id=${encodeURIComponent(sectionId)}` : ""}`);
+}
+
+export async function fetchTrains() {
+  return request("/trains");
+}
+
+export async function fetchTopology(sectionId?: string) {
+  return request(`/topology${sectionId ? `?section_id=${encodeURIComponent(sectionId)}` : ""}`);
 }
 
 // ── Conflicts ──────────────────────────────────────────────
 
 export async function fetchConflicts() {
-  const res = await fetch(`${API_BASE}/conflicts`);
-  if (!res.ok) throw new Error("Failed to fetch conflicts");
-  return res.json();
+  return request<ConflictRecord[]>("/conflicts");
 }
 
 export async function previewConflictResolution(id: string, action: string) {
-  const res = await fetch(`${API_BASE}/conflicts/${id}/preview`, {
+  return request(`/conflicts/${id}/preview`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action }),
   });
-  if (!res.ok) throw new Error("Failed to preview resolution");
-  return res.json();
 }
 
 export async function resolveConflict(id: string, action: string) {
-  const res = await fetch(`${API_BASE}/conflicts/${id}/resolve`, {
+  return request(`/conflicts/${id}/resolve`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action }),
   });
-  if (!res.ok) throw new Error("Failed to resolve conflict");
-  return res.json();
 }
 
 // ── Analytics ──────────────────────────────────────────────
 
 export async function fetchAnalytics() {
-  const res = await fetch(`${API_BASE}/analytics`);
-  if (!res.ok) throw new Error("Failed to fetch analytics");
-  return res.json();
+  return request("/analytics");
 }
 
 // ── Health ─────────────────────────────────────────────────
 
 export async function fetchHealth() {
-  const res = await fetch("http://localhost:8000/health");
+  const res = await fetch(`${API_BASE.replace(/\/api$/, "")}/health`);
   if (!res.ok) throw new Error("Backend unavailable");
   return res.json();
 }

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.database.connection import SessionLocal
 from backend.database.models.block import BlockRecord
+from backend.database.models.maintenance import MaintenanceRequest
 from backend.database.models.topology import NetworkTopology
 from backend.services.rules import derive_urgency_tier, create_audit_entry
 
@@ -16,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 AI_ML_DIR = Path(__file__).resolve().parents[2] / "ai_ml"
 TOPOLOGY_CSV = AI_ML_DIR / "data" / "raw" / "network_topology.csv"
+BLOCK_HISTORY_CSV = AI_ML_DIR / "data" / "curated" / "maintenance" / "block_execution_history.csv"
+ASSET_HISTORY_CSV = AI_ML_DIR / "data" / "curated" / "maintenance" / "asset_condition_history.csv"
 
 
 def _seed_topology(db: Session) -> None:
@@ -167,11 +170,90 @@ def _seed_blocks(db: Session) -> None:
     logger.info("Seeded %d block records", len(blocks))
 
 
+def _seed_maintenance(db: Session) -> None:
+    """Seed request-time examples from curated history for AI API workflows."""
+    if db.query(MaintenanceRequest).first() is not None or not BLOCK_HISTORY_CSV.exists():
+        return
+
+    numeric_fields = {
+        "location_km_marker", "safety_critical", "inspection_score", "severity_score",
+        "planned_duration_minutes", "section_complexity", "workers_required", "equipment_count",
+        "workload_per_worker", "trains_in_section", "daily_train_count", "daily_tonnage_mgt",
+        "accumulated_tonnage_mgt", "window_train_count", "window_average_delay_minutes",
+        "window_peak_delay_minutes", "traffic_density", "congestion_score", "current_delay_minutes",
+        "temperature_mean_c", "rainfall_mm", "max_wind_speed_kmh", "weather_risk",
+        "is_heavy_rain_day", "is_heatwave_day", "is_rain_day",
+    }
+    condition_by_type: dict[str, dict[str, str]] = {}
+    if ASSET_HISTORY_CSV.exists():
+        with open(ASSET_HISTORY_CSV, newline="", encoding="utf-8-sig") as fh:
+            for row in csv.DictReader(fh):
+                condition_by_type.setdefault(row["asset_type"], row)
+
+    seeded: list[MaintenanceRequest] = []
+    with open(BLOCK_HISTORY_CSV, newline="", encoding="utf-8-sig") as fh:
+        for index, row in enumerate(csv.DictReader(fh)):
+            if index >= 6:
+                break
+            timestamp = datetime.datetime.fromisoformat(row["request_timestamp"])
+            condition = condition_by_type.get(row["asset_type"], {})
+            model_features: dict[str, object] = {
+                key: (float(value) if key in numeric_fields else value)
+                for key, value in row.items()
+                if value != "" and key not in {"task_id", "actual_start_time", "actual_end_time"}
+            }
+            model_features.update({
+                key: float(condition[key])
+                for key in (
+                    "asset_age_days", "days_since_last_maintenance", "previous_failure_count",
+                    "lifetime_tonnage_mgt", "tonnage_since_last_maintenance_mgt",
+                )
+                if condition.get(key) not in (None, "")
+            })
+            model_features.update({
+                "planned_start_hour": timestamp.hour,
+                "request_hour": timestamp.hour,
+                "request_day_of_week": timestamp.weekday(),
+                "request_month": timestamp.month,
+                "request_is_weekend": int(timestamp.weekday() >= 5),
+            })
+            for key in ("daily_train_count", "daily_tonnage_mgt", "rainfall_mm", "temperature_mean_c", "max_wind_speed_kmh", "is_heavy_rain_day"):
+                if key not in model_features and condition.get(key) not in (None, ""):
+                    model_features[key] = float(condition[key])
+
+            request_id = f"MR-SEED-{index + 1:03d}"
+            seeded.append(MaintenanceRequest(
+                id=request_id,
+                asset_id=row.get("asset_id"),
+                section_id=row["section_id"],
+                department=row["department"],
+                work_type=row["work_type"],
+                location_km=float(row["location_km_marker"]),
+                priority=row["priority"],
+                safety_critical=bool(int(row["safety_critical"])),
+                request_data={
+                    "id": request_id,
+                    "asset_id": row.get("asset_id"),
+                    "section_id": row["section_id"],
+                    "department": row["department"],
+                    "work_type": row["work_type"],
+                    "location_km": float(row["location_km_marker"]),
+                    "priority": row["priority"],
+                    "safety_critical": bool(int(row["safety_critical"])),
+                    "model_features": model_features,
+                },
+            ))
+    db.add_all(seeded)
+    db.commit()
+    logger.info("Seeded %d maintenance requests with model features", len(seeded))
+
+
 def seed() -> None:
     db = SessionLocal()
     try:
         _seed_topology(db)
         _seed_blocks(db)
+        _seed_maintenance(db)
     except Exception as exc:
         logger.error("Seeding failed: %s", exc)
     finally:

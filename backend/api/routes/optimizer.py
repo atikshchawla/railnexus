@@ -6,7 +6,7 @@ from backend.api.schemas.prediction import PipelineOptimizeRequest
 from backend.database.connection import get_db
 from backend.repositories.maintenance_repository import MaintenanceRepository
 from backend.services.maintenance_service import MaintenanceService
-from backend.services.prediction_service import get_pipeline
+from backend.services.pipeline_loader import get_pipeline
 from backend.repositories.topology_repository import TopologyRepository
 
 router = APIRouter(prefix="/optimizer", tags=["optimizer"])
@@ -25,7 +25,10 @@ def optimize(payload: PipelineOptimizeRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail="one or more maintenance requests use an unknown section_id")
     raw_requests = [service.to_pipeline_request(request) for request in requests if request is not None]
     try:
-        return get_pipeline().optimize(
+        pipeline = get_pipeline()
+        if pipeline is None:
+            raise HTTPException(status_code=503, detail="AI/ML pipeline is unavailable")
+        return pipeline.optimize(
             raw_requests,
             max_group_size=payload.max_group_size,
             max_spatial_gap_km=payload.max_spatial_gap_km,

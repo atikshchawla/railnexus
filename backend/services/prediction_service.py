@@ -1,23 +1,18 @@
-from functools import lru_cache
-
 from sqlalchemy.orm import Session
 
 from ai_ml.optimizer import derive_priority
-from ai_ml.pipeline import ModelPipeline
 from backend.database.models.prediction import Prediction
 from backend.database.models.maintenance import MaintenanceRequest
 from backend.services.maintenance_service import MaintenanceService
-from backend.utils.config import get_settings
-
-
-@lru_cache
-def get_pipeline() -> ModelPipeline:
-    return ModelPipeline(get_settings().ai_model_dir)
+from backend.services.pipeline_loader import get_pipeline
 
 
 class PredictionService:
     def predict(self, db: Session, request: MaintenanceRequest) -> Prediction:
-        scored = get_pipeline().score_request(MaintenanceService.to_pipeline_request(request))
+        pipeline = get_pipeline()
+        if pipeline is None:
+            raise RuntimeError("AI/ML pipeline is unavailable")
+        scored = pipeline.score_request(MaintenanceService.to_pipeline_request(request))
         score, urgency = derive_priority(scored)
         output = {
             "failure_risk_probability": scored.failure_risk_probability,

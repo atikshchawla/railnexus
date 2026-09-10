@@ -2,17 +2,18 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, LayersControl, Polyline, CircleMarker, Tooltip, Marker, useMap, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import trackGeometry from '../assets/track_geometry.json';
 
 const STATIONS = [
-  { code: 'AJJ', name: 'Arakkonam Jn', lat: 13.0819, lon: 79.6685, km: 0 },
-  { code: 'SHU', name: 'Sholinghur', lat: 13.0000, lon: 79.4500, km: 21.3 },
-  { code: 'WJR', name: 'Walajah Road Jn', lat: 12.9350, lon: 79.3550, km: 36.2 },
-  { code: 'MCN', name: 'Mukundarayapuram', lat: 12.9200, lon: 79.2600, km: 43.9 },
-  { code: 'KPD', name: 'Katpadi Jn', lat: 12.9722, lon: 79.1383, km: 60.9 },
-  { code: 'GYM', name: 'Gudiyattam', lat: 12.9450, lon: 78.8700, km: 85.6 },
-  { code: 'AB', name: 'Ambur', lat: 12.7900, lon: 78.7150, km: 113.0 },
-  { code: 'VN', name: 'Vaniyambadi', lat: 12.6785, lon: 78.6217, km: 129.1 },
-  { code: 'JTJ', name: 'Jolarpettai Jn', lat: 12.5593, lon: 78.5767, km: 144.5 },
+  { code: 'AJJ', name: 'Arakkonam Jn', lat: 13.0846, lon: 79.6705, km: 0 },
+  { code: 'SHU', name: 'Sholinghur', lat: 13.1192, lon: 79.4201, km: 21.3 },
+  { code: 'WJR', name: 'Walajah Road Jn', lat: 12.9368, lon: 79.3354, km: 36.2 },
+  { code: 'MCN', name: 'Mukundarayapuram', lat: 12.9241, lon: 79.2484, km: 43.9 },
+  { code: 'KPD', name: 'Katpadi Jn', lat: 12.9690, lon: 79.1400, km: 60.9 },
+  { code: 'GYM', name: 'Gudiyattam', lat: 12.9463, lon: 78.8723, km: 85.6 },
+  { code: 'AB', name: 'Ambur', lat: 12.7916, lon: 78.7162, km: 113.0 },
+  { code: 'VN', name: 'Vaniyambadi', lat: 12.6816, lon: 78.6204, km: 129.1 },
+  { code: 'JTJ', name: 'Jolarpettai Jn', lat: 12.5707, lon: 78.5736, km: 144.5 },
 ];
 
 const SECTIONS = [
@@ -80,11 +81,41 @@ function TrainMarker({ train, network }) {
     let progress = (train.km - fromStation.km) / sectionLength;
     progress = Math.max(0, Math.min(1, progress));
     
-    const lat = fromStation.lat + (toStation.lat - fromStation.lat) * progress;
-    const lon = fromStation.lon + (toStation.lon - fromStation.lon) * progress;
+    const pathData = trackGeometry[currentSection.id];
+    let path = null;
+    if (pathData) {
+      // Use UP or DOWN track based on train direction. Fallback to center if not available.
+      path = train.direction === 'UP' ? pathData.up : pathData.down;
+      if (!path) path = pathData.center || pathData; // backward compatibility
+    }
     
-    return [lat, lon];
-  }, [train.km, train.heldSectionIds, train.nextSectionId, network]);
+    if (path && path.length > 1) {
+      // For DOWN trains, the path nodes are still ordered from UP direction (Start station to End station).
+      // So progress goes from 1 to 0 if the train is actually moving DOWN the corridor?
+      // Wait, in simulator, direction DOWN means km goes UP or DOWN? 
+      // The stations are AJJ (0km) to JTJ (144km). UP trains usually go towards Chennai (km goes down to 0).
+      // Wait, in simulator.ts, direction === 'UP' ? 1 : -1. So UP means km goes UP.
+      
+      const totalSegments = path.length - 1;
+      const exactIndex = progress * totalSegments;
+      const segmentIndex = Math.floor(exactIndex);
+      const segmentProgress = exactIndex - segmentIndex;
+      
+      if (segmentIndex >= totalSegments) return path[totalSegments];
+      
+      const p1 = path[segmentIndex];
+      const p2 = path[segmentIndex + 1];
+      
+      return [
+        p1[0] + (p2[0] - p1[0]) * segmentProgress,
+        p1[1] + (p2[1] - p1[1]) * segmentProgress
+      ];
+    } else {
+      const lat = fromStation.lat + (toStation.lat - fromStation.lat) * progress;
+      const lon = fromStation.lon + (toStation.lon - fromStation.lon) * progress;
+      return [lat, lon];
+    }
+  }, [train.km, train.direction, train.heldSectionIds, train.nextSectionId, network]);
 
   if (!position) return null;
 
@@ -158,18 +189,52 @@ export default function MapView({ world, network, setSelectedDetail }) {
           const color = sectionData ? getSectionColor(sectionData.state, sectionData.fault) : STATE_COLORS.clear;
           
           return (
-            <Polyline
-              key={sectionId}
-              positions={[[fromSt.lat, fromSt.lon], [toSt.lat, toSt.lon]]}
-              color={color}
-              weight={6}
-              lineCap="square"
-              lineJoin="miter"
-              className="transition-all duration-300 ease-in-out"
-              eventHandlers={{
-                click: () => setSelectedDetail({ type: 'section', data: sectionData || { id: sectionId } })
-              }}
-            />
+            <React.Fragment key={sectionId}>
+              {/* UP Line (Blue) */}
+              <Polyline
+                positions={trackGeometry[sectionId]?.up || [[fromSt.lat, fromSt.lon], [toSt.lat, toSt.lon]]}
+                color="#0B5FA5"
+                weight={3}
+                lineCap="square"
+                lineJoin="miter"
+                className="transition-all duration-300 ease-in-out"
+                eventHandlers={{
+                  click: () => setSelectedDetail({ type: 'section', data: sectionData || { id: sectionId } })
+                }}
+              />
+              {/* DOWN Line (Orange/Red) */}
+              <Polyline
+                positions={trackGeometry[sectionId]?.down || [[fromSt.lat, fromSt.lon], [toSt.lat, toSt.lon]]}
+                color={color === STATE_COLORS.clear ? "#B85D19" : color} // If clear, draw DOWN line orange. Else use fault color.
+                weight={3}
+                lineCap="square"
+                lineJoin="miter"
+                className="transition-all duration-300 ease-in-out"
+                eventHandlers={{
+                  click: () => setSelectedDetail({ type: 'section', data: sectionData || { id: sectionId } })
+                }}
+              />
+              {/* Invisible thick line for easier clicking */}
+              <Polyline
+                positions={trackGeometry[sectionId]?.center || [[fromSt.lat, fromSt.lon], [toSt.lat, toSt.lon]]}
+                color="transparent"
+                weight={15}
+                eventHandlers={{
+                  click: () => setSelectedDetail({ type: 'section', data: sectionData || { id: sectionId } })
+                }}
+              />
+              
+              {/* Visual Candy for Maintenance/Faults (Transparent Shadow Block) */}
+              {(sectionData?.fault || sectionData?.state === 'maintenance') && (
+                <Polyline
+                  positions={trackGeometry[sectionId]?.center || [[fromSt.lat, fromSt.lon], [toSt.lat, toSt.lon]]}
+                  color={STATE_COLORS.maintenance}
+                  opacity={0.3}
+                  weight={25}
+                  className="animate-pulse pointer-events-none transition-all duration-500 ease-in-out"
+                />
+              )}
+            </React.Fragment>
           );
         })}
 

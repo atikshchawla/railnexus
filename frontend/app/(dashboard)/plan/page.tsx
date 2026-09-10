@@ -23,6 +23,7 @@ function BlockPlanPageContent() {
   const { stations, trains } = data;
   const [optimization, setOptimization] = useState<OptimizerResponse | null>(null);
   const [optimizationError, setOptimizationError] = useState<string | null>(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   // ─── State ─────────────────────────────────────────────
   const [blocks, setBlocks] = useState<ChartBlock[]>(() => 
@@ -54,12 +55,16 @@ function BlockPlanPageContent() {
     const requestIds = data.blocks.map((block) => block.id);
     if (requestIds.length === 0) return;
     let active = true;
+    setIsOptimizing(true);
     optimizeRequests(requestIds)
       .then((result) => {
         if (active) setOptimization(result);
       })
       .catch((reason: unknown) => {
         if (active) setOptimizationError(reason instanceof Error ? reason.message : "Unable to optimize the live block plan");
+      })
+      .finally(() => {
+        if (active) setIsOptimizing(false);
       });
     return () => {
       active = false;
@@ -236,8 +241,15 @@ function BlockPlanPageContent() {
         subtitle="Section: Chennai division — all departments"
       />
 
+      {isOptimizing && (
+        <div className="bg-brand/10 border-b border-brand px-4 py-2 text-[12.5px] font-medium text-brand flex items-center justify-center gap-2 animate-pulse">
+          <div className="w-3 h-3 rounded-full border-2 border-brand border-t-transparent animate-spin" />
+          ML Model running predictions and synchronizing plan...
+        </div>
+      )}
+
       {optimizationError && <div className="border-b border-critical bg-critical/10 px-4 py-2 text-[12px] text-critical">Optimizer unavailable: {optimizationError}</div>}
-      {optimization && (
+      {optimization && !isOptimizing && (
         <div className="grid grid-cols-4 gap-px bg-border-default border-b border-border-default text-[12px]">
           <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Optimized blocks</span><strong className="num ml-2">{optimization.totals.optimized_block_count}</strong></div>
           <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Possession saving</span><strong className="num ml-2">{Number(optimization.totals.possession_saving_minutes).toFixed(1)} min</strong></div>
@@ -266,6 +278,22 @@ function BlockPlanPageContent() {
 
           {/* Zoom controls */}
           <div className="flex items-center gap-1 ml-auto">
+            <button onClick={() => {
+              const range = viewEnd - viewStart;
+              const shift = range * 0.25;
+              const [s, e] = clampView(viewStart - shift, viewEnd - shift);
+              setViewStart(s); setViewEnd(e);
+            }} className="px-2 py-1 text-[11px] border border-border-default text-text-secondary hover:bg-surface-sunken font-medium" title="Move earlier">
+              &lt;
+            </button>
+            <button onClick={() => {
+              const range = viewEnd - viewStart;
+              const shift = range * 0.25;
+              const [s, e] = clampView(viewStart + shift, viewEnd + shift);
+              setViewStart(s); setViewEnd(e);
+            }} className="px-2 py-1 text-[11px] border border-border-default text-text-secondary hover:bg-surface-sunken font-medium mr-2" title="Move later">
+              &gt;
+            </button>
             <button onClick={() => {
               const mid = (viewStart + viewEnd) / 2;
               const range = (viewEnd - viewStart) * 0.6;

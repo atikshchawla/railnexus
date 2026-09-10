@@ -25,7 +25,7 @@ settings = get_settings()
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,7 +70,7 @@ class LegacyRequestPayload(BaseModel):
 class LegacyOptimizePayload(BaseModel):
     requests: list[LegacyRequestPayload] = Field(min_length=1)
     max_group_size: int = Field(default=4, ge=2, le=8)
-    max_spatial_gap_km: float = Field(default=5.0, gt=0, le=50)
+    max_spatial_gap_km: float = Field(default=10.0, gt=0, le=50)
     weights: dict[str, float] = Field(default_factory=dict)
     corridors: list[dict] | None = None
 

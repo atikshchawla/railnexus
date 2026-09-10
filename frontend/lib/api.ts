@@ -248,3 +248,14 @@ export async function optimizeRequests(requestIds: string[]): Promise<OptimizerR
     return response.json() as Promise<OptimizerResponse>;
   });
 }
+
+export async function updateRequestStatus(id: string, status: string): Promise<MaintenanceResponse> {
+  return fetch(`${API_BASE_URL}/maintenance/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  }).then(async (response) => {
+    if (!response.ok) throw new Error(`RailNexus API returned ${response.status} for status update`);
+    return response.json() as Promise<MaintenanceResponse>;
+  });
+}

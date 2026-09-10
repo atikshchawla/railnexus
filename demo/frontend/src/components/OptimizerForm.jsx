@@ -142,17 +142,24 @@ export default function OptimizerForm({ network }) {
           body: JSON.stringify(payload)
         });
         
-        if (!res.ok && res.status !== 409) {
-          throw new Error(`Failed to create request ${req.id}: ` + await res.text());
+        let isExisting = false;
+        if (!res.ok) {
+          if (res.status === 409) {
+            isExisting = true;
+          } else {
+            throw new Error(`Failed to create request ${req.id}: ` + await res.text());
+          }
         }
         
-        res = await fetch(`http://localhost:8000/api/maintenance/${req.id}/predict`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!res.ok) {
-          throw new Error(`Failed to generate ML prediction for ${req.id}: ` + await res.text());
+        if (!isExisting) {
+          res = await fetch(`http://localhost:8000/api/maintenance/${req.id}/predict`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (!res.ok) {
+            throw new Error(`Failed to generate ML prediction for ${req.id}: ` + await res.text());
+          }
         }
       }
       

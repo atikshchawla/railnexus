@@ -5,6 +5,7 @@ import RequestFeed from './components/RequestFeed';
 import SectionTable from './components/SectionTable';
 import FaultInjectionPanel from './components/FaultInjectionPanel';
 import RaiseRequestForm from './components/RaiseRequestForm';
+import OptimizerForm from './components/OptimizerForm';
 import RawFeedDrawer from './components/RawFeedDrawer';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
 
   const [mode, setMode] = useState('coa'); // 'coa' or 'world'
   const [selectedDetail, setSelectedDetail] = useState(null);
+  const [formMode, setFormMode] = useState('multi'); // 'single' or 'multi'
 
   return (
     <div className="h-screen overflow-hidden bg-canvas text-text-primary font-sans flex flex-col">
@@ -104,8 +106,30 @@ export default function App() {
               <div className="flex-1 min-h-0 border border-border-default bg-surface shadow-sm rounded-sm flex flex-col overflow-hidden">
                 <RequestFeed memberB={memberB} />
               </div>
-              <div className="shrink-0 border border-border-default bg-surface shadow-sm rounded-sm">
-                <RaiseRequestForm network={network} world={world} raiseRequest={raiseRequest} />
+              <div className="shrink-0 border border-border-default bg-surface shadow-sm rounded-sm max-h-[60vh] flex flex-col">
+                <div className="flex border-b border-border-default bg-surface-sunken">
+                  <button 
+                    onClick={() => setFormMode('multi')}
+                    className={`flex-1 py-2 text-[11px] font-medium text-center ${formMode === 'multi' ? 'bg-surface text-brand border-b-[3px] border-brand' : 'text-text-secondary hover:text-text-primary border-b-[3px] border-transparent'}`}
+                  >
+                    ML Optimizer (Multi)
+                  </button>
+                  <button 
+                    onClick={() => setFormMode('single')}
+                    className={`flex-1 py-2 text-[11px] font-medium text-center ${formMode === 'single' ? 'bg-surface text-brand border-b-[3px] border-brand' : 'text-text-secondary hover:text-text-primary border-b-[3px] border-transparent'}`}
+                  >
+                    Simple Request (Single)
+                  </button>
+                </div>
+                <div className="flex-1 overflow-hidden flex flex-col">
+                  {formMode === 'multi' ? (
+                    <OptimizerForm network={network} />
+                  ) : (
+                    <div className="overflow-y-auto">
+                      <RaiseRequestForm network={network} world={world} raiseRequest={raiseRequest} />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

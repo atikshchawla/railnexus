@@ -71,7 +71,8 @@ export class WorldSimulator {
     if (!atBoundary) { train.positionKm = target; train.status = train.delayMin >= 5 ? "delayed" : "running"; return; }
     const nextIndex = train.sectionIndex + direction;
     if (nextIndex < 0 || nextIndex >= sections.length) { train.sectionIndex = direction === 1 ? 0 : sections.length - 1; train.positionKm = direction === 1 ? sections[0]!.from.km + .1 : sections.at(-1)!.to.km - .1; train.status = "running"; return; }
-    const next = sections[nextIndex]!; const occupied = this.trains.some((candidate) => candidate !== train && candidate.sectionIndex === nextIndex);
+    const next = sections[nextIndex]!; 
+    const occupied = this.trains.some((candidate) => candidate !== train && candidate.sectionIndex === nextIndex && candidate.direction === train.direction);
     if (occupied || this.faults.has(next.id)) { train.positionKm = direction === 1 ? section.to.km : section.from.km; train.status = this.faults.has(next.id) ? "stopped" : "waiting"; train.delayMin += simulatedSeconds / 60; return; }
     train.sectionIndex = nextIndex; train.positionKm = direction === 1 ? next.from.km + .05 : next.to.km - .05; train.status = train.delayMin >= 5 ? "delayed" : "running";
   }

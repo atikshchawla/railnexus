@@ -28,21 +28,29 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    loadDashboardData()
-      .then((nextData) => {
-        if (!active) return;
-        setData(nextData);
-        setError(null);
-      })
-      .catch((reason: unknown) => {
-        if (!active) return;
-        setError(reason instanceof Error ? reason.message : "Unable to reach the RailNexus backend");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    
+    const fetchData = () => {
+      loadDashboardData()
+        .then((nextData) => {
+          if (!active) return;
+          setData(nextData);
+          setError(null);
+        })
+        .catch((reason: unknown) => {
+          if (!active) return;
+          setError(reason instanceof Error ? reason.message : "Unable to reach the RailNexus backend");
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    };
+    
+    fetchData();
+    const interval = setInterval(fetchData, 15000); // Auto-refresh every 15s
+    
     return () => {
       active = false;
+      clearInterval(interval);
     };
   }, [refreshToken]);
 

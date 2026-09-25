@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/layout";
-import { SearchBar, Pagination } from "@/components/shared";
+import { SearchBar } from "@/components/shared";
 import { useDashboardData } from "@/lib/dashboard-context";
 import { Plus, ArrowRight, Square, Circle, Triangle } from "lucide-react";
 import type { Category, Department, BlockRecord } from "@/lib/types";
@@ -16,8 +16,6 @@ import {
   AcronymLegend,
 } from "@/components/shared";
 
-// ─── Constants ────────────────────────────────────────────────────────
-const PAGE_SIZE = 10;
 
 const DEPT_HUES: Record<Department, string> = {
   Engg: "text-amber-700",
@@ -43,7 +41,6 @@ export default function BacklogPage() {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [page, setPage] = useState(1);
   const [promotedBlocks, setPromotedBlocks] = useState<Set<string>>(new Set());
 
   const filtered = blocks.filter((item) => {
@@ -59,7 +56,6 @@ export default function BacklogPage() {
     return true;
   });
 
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handlePromote = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -81,11 +77,11 @@ export default function BacklogPage() {
         {/* Toolbar */}
         <div className="flex items-center gap-3">
           <div className="w-72">
-            <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} />
+            <SearchBar value={search} onChange={(v) => setSearch(v)} />
           </div>
           <select
             value={deptFilter}
-            onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
+            onChange={(e) => setDeptFilter(e.target.value)}
             aria-label="Filter by department"
             className="text-[12.5px] px-2 py-1.5 border border-border-default bg-surface text-text-primary"
           >
@@ -96,7 +92,7 @@ export default function BacklogPage() {
           </select>
           <select
             value={categoryFilter}
-            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+            onChange={(e) => setCategoryFilter(e.target.value)}
             aria-label="Filter by category"
             className="text-[12.5px] px-2 py-1.5 border border-border-default bg-surface text-text-primary"
           >
@@ -129,7 +125,7 @@ export default function BacklogPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default">
-              {paged.map((item) => {
+              {filtered.map((item) => {
                 const isAging = item.status === "Under review" && (item.urgency.tier === "critical" || item.urgency.tier === "warning");
                 const breachText = item.urgency.timeToBreachHours === null 
                   ? "Routine" 
@@ -195,12 +191,9 @@ export default function BacklogPage() {
               })}
             </tbody>
           </table>
-          <Pagination
-            currentPage={page}
-            totalItems={filtered.length}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
-          />
+          <div className="px-4 py-2 text-[11px] text-text-secondary border-t border-border-default">
+            Showing {filtered.length} item{filtered.length !== 1 ? "s" : ""}
+          </div>
         </div>
       </div>
     </>

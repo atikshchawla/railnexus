@@ -15,6 +15,7 @@ import {
   StatusPill,
   AcronymLegend,
 } from "@/components/shared";
+import { URGENCY_COLORS } from "@/components/shared/DesignTokens";
 
 
 const DEPT_HUES: Record<Department, string> = {
@@ -135,18 +136,17 @@ export default function BacklogPage() {
                   <tr
                     key={item.id}
                     className="hover:bg-surface-sunken/50 transition-colors group"
+                    style={{ '--urgency-color': URGENCY_COLORS[item.urgency.tier] } as React.CSSProperties}
                   >
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center h-full">
-                        <UrgencyBorder tier={item.urgency.tier} className={`absolute left-0 w-full h-full -ml-4 pl-4 pointer-events-none opacity-0 ${isAging ? 'opacity-100' : 'group-hover:opacity-100'} transition-opacity`}>
-                          <div className="flex items-center gap-2 mt-1">
-                            <CategoryIcon category={item.category} dept={item.department} />
-                            <span className="text-[11px] font-semibold text-text-primary tracking-wide">{item.category}</span>
-                            {isAging && (
-                              <span className="ml-1 inline-block px-1 bg-critical/10 text-critical text-[9px] font-bold uppercase rounded-sm border border-critical/20">Aging</span>
-                            )}
-                          </div>
-                        </UrgencyBorder>
+                    <td 
+                      className={`px-4 py-2.5 border-l-[3px] transition-colors ${isAging ? 'border-[var(--urgency-color)]' : 'border-transparent group-hover:border-[var(--urgency-color)]'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <CategoryIcon category={item.category} dept={item.department} />
+                        <span className="text-[11px] font-semibold text-text-primary tracking-wide">{item.category}</span>
+                        {isAging && (
+                          <span className="ml-1 inline-block px-1 bg-critical/10 text-critical text-[9px] font-bold uppercase rounded-sm border border-critical/20">Aging</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-2.5 num font-medium text-[12px]">{item.id}</td>

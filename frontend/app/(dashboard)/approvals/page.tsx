@@ -12,6 +12,7 @@ import {
   AcronymLegend,
   ConfidenceDisplay,
 } from "@/components/shared";
+import { URGENCY_COLORS } from "@/components/shared/DesignTokens";
 import {
   Filter, CheckSquare, Settings2, Layers, ChevronDown, ChevronRight,
   Unlink, RefreshCw, AlertTriangle, Info,
@@ -65,10 +66,10 @@ function ShadowGroupRows({
     <>
       {/* Group header row — click anywhere to collapse */}
       <tr
-        className="bg-brand/5 border-l-[3px] border-brand cursor-pointer hover:bg-brand/10 transition-colors"
+        className="bg-brand/5 cursor-pointer hover:bg-brand/10 transition-colors"
         onClick={onCollapse}
       >
-        <td className="px-3 py-2.5 w-10">
+        <td className="px-3 py-2.5 border-l-[3px] border-brand w-10">
           <ChevronDown size={14} className="text-brand" />
         </td>
         <td className="px-3 py-2.5">
@@ -144,9 +145,9 @@ function ShadowGroupRows({
         return (
           <tr
             key={item.id}
-            className={`bg-brand/[0.02] border-l-[3px] border-brand/30 text-[12px] ${isLast ? "border-b border-b-border-default" : ""}`}
+            className={`bg-brand/[0.02] text-[12px] ${isLast ? "border-b border-b-border-default" : ""}`}
           >
-            <td className="py-2 text-center">
+            <td className="py-2 text-center border-l-[3px] border-brand/30">
               <span className="text-[10px] text-text-secondary font-mono">#{idx + 1}</span>
             </td>
             <td className="px-3 py-2">
@@ -420,10 +421,10 @@ export default function ApprovalsPage() {
                       // ── Collapsed shadow block row ─────────────────
                       <tr
                         key={di.id}
-                        className="cursor-pointer border-l-[3px] border-brand bg-brand/5 hover:bg-brand/10 transition-colors"
+                        className="cursor-pointer bg-brand/5 hover:bg-brand/10 transition-colors"
                         onClick={() => toggleExpand(di.id)}
                       >
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-3 border-l-[3px] border-brand">
                           <ChevronRight size={14} className="text-brand" />
                         </td>
                         <td className="px-3 py-3">
@@ -493,11 +494,10 @@ export default function ApprovalsPage() {
                       key={item.id}
                       className="hover:bg-surface-sunken/50 transition-colors relative group"
                     >
-                      <td className="px-3 py-3 relative">
-                        <UrgencyBorder
-                          tier={item.urgency.tier}
-                          className="absolute left-0 w-full h-full pointer-events-none opacity-80"
-                        />
+                      <td 
+                        className="px-3 py-3 border-l-[3px]"
+                        style={{ borderLeftColor: URGENCY_COLORS[item.urgency.tier] }}
+                      >
                       </td>
                       <td className="px-3 py-3 num font-medium text-[12px]">
                         {item.id}

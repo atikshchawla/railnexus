@@ -12,7 +12,7 @@ const DEPT_COLORS: Record<Department, string> = {
   "S&T": "#15803D", // green-700
 };
 
-const URGENCY_COLORS: Record<UrgencyTier, string> = {
+export const URGENCY_COLORS: Record<UrgencyTier, string> = {
   critical: "#DC2626", // red-600
   warning: "#EA580C",  // orange-600
   caution: "#CA8A04",  // yellow-700

@@ -1,0 +1,13 @@
+{
+  "name": "railnexus-devkit",
+  "version": "1.0.0",
+  "description": "RailNexus local service manager",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

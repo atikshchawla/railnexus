@@ -25,6 +25,7 @@ class OperationalBlockRepository:
         override_id: str | None = None,
         custom_scheduled_start: datetime | None = None,
         custom_scheduled_end: datetime | None = None,
+        auto_commit: bool = True,
     ) -> OperationalBlock:
         """Promote a candidate BlockProposal to an official OperationalBlock.
 
@@ -103,9 +104,29 @@ class OperationalBlockRepository:
         # 5. Update proposal status
         proposal.status = "OVERRIDDEN" if override_id else "ACCEPTED"
 
-        db.commit()
-        db.refresh(block)
+        if auto_commit:
+            db.commit()
+            db.refresh(block)
+        else:
+            db.flush()
+
         return block
+
+    def get_for_proposal(self, db: Session, proposal_id: str) -> OperationalBlock | None:
+        """Retrieve the existing current/root OperationalBlock for a given BlockProposal."""
+        stmt = (
+            select(OperationalBlock)
+            .where(OperationalBlock.origin_proposal_id == proposal_id)
+            .order_by(OperationalBlock.is_current.desc(), OperationalBlock.revision_number.desc())
+            .options(
+                selectinload(OperationalBlock.section),
+                selectinload(OperationalBlock.origin_proposal),
+                selectinload(OperationalBlock.override),
+                selectinload(OperationalBlock.departments),
+                selectinload(OperationalBlock.child_revisions),
+            )
+        )
+        return db.scalar(stmt)
 
     def create_revision(
         self,

@@ -20,6 +20,7 @@ class AuditRepository:
         actor_id: str,
         actor_role: str,
         payload_diff: dict,
+        auto_commit: bool = True,
     ) -> AuditLog:
         entry = AuditLog(
             entity_name=entity_name,
@@ -30,8 +31,11 @@ class AuditRepository:
             payload_diff=payload_diff,
         )
         db.add(entry)
-        db.commit()
-        db.refresh(entry)
+        if auto_commit:
+            db.commit()
+            db.refresh(entry)
+        else:
+            db.flush()
         return entry
 
     def list_for_entity(

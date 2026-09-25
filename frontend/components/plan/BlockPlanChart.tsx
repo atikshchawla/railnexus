@@ -45,7 +45,7 @@ export default function BlockPlanChart({
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; viewStart: number; viewEnd: number } | null>(null);
 
-  const CHART_HEIGHT = 480;
+  const [chartHeight, setChartHeight] = useState(480);
 
   // Filter stations by stationFilter
   const visibleStations = useMemo(() => {
@@ -63,7 +63,7 @@ export default function BlockPlanChart({
   const maxKm = Math.max(...visibleStations.map(s => s.km));
 
   const getX = useCallback((t: number) => scaleX(t, viewStart, viewEnd, chartWidth), [viewStart, viewEnd, chartWidth]);
-  const getY = useCallback((km: number) => Y_PADDING + scaleY(km, minKm, maxKm, CHART_HEIGHT - 2 * Y_PADDING), [minKm, maxKm, CHART_HEIGHT]);
+  const getY = useCallback((km: number) => Y_PADDING + scaleY(km, minKm, maxKm, chartHeight - 2 * Y_PADDING), [minKm, maxKm, chartHeight]);
 
   // Resize observer
   useEffect(() => {
@@ -71,6 +71,7 @@ export default function BlockPlanChart({
     const ro = new ResizeObserver(entries => {
       for (const entry of entries) {
         setChartWidth(entry.contentRect.width - 110); // subtract y-axis gutter
+        setChartHeight(Math.max(200, entry.contentRect.height - HEADER_H)); // subtract time header
       }
     });
     ro.observe(containerRef.current);
@@ -155,8 +156,8 @@ export default function BlockPlanChart({
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-canvas border border-border-default overflow-hidden select-none"
-      style={{ height: CHART_HEIGHT + HEADER_H, cursor: isDragging ? "grabbing" : "grab" }}
+      className="relative w-full h-full bg-canvas border border-border-default overflow-hidden select-none"
+      style={{ cursor: isDragging ? "grabbing" : "grab" }}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -168,7 +169,7 @@ export default function BlockPlanChart({
         <div className="h-[28px] border-b border-border-default bg-surface-sunken flex items-center px-2">
           <span className="text-[10px] font-medium text-text-secondary">Km / Station</span>
         </div>
-        <svg width={110} height={CHART_HEIGHT} className="absolute top-[28px]">
+        <svg width={110} height={chartHeight} className="absolute top-[28px]">
           {stations.map(st => {
             const isFiltered = stationFilter === st.id;
             return (
@@ -225,7 +226,7 @@ export default function BlockPlanChart({
       {/* SVG Chart Canvas */}
       <svg
         width={chartWidth}
-        height={CHART_HEIGHT}
+        height={chartHeight}
         className="absolute top-[28px] left-[110px]"
         style={{ overflow: "visible" }}
       >
@@ -272,7 +273,7 @@ export default function BlockPlanChart({
             <line key={`gy-${st.id}`} x1={0} x2={chartWidth} y1={getY(st.km)} y2={getY(st.km)} stroke="var(--border-default)" strokeWidth={1} />
           ))}
           {ticks.map(t => (
-            <line key={`gx-${t}`} x1={getX(t)} x2={getX(t)} y1={0} y2={CHART_HEIGHT} stroke="var(--border-default)" strokeWidth={1}
+            <line key={`gx-${t}`} x1={getX(t)} x2={getX(t)} y1={0} y2={chartHeight} stroke="var(--border-default)" strokeWidth={1}
               strokeDasharray={t % HOUR_MS === 0 ? "none" : "3,3"} />
           ))}
         </g>
@@ -434,7 +435,7 @@ export default function BlockPlanChart({
         {/* ── Layer 7: NOW line ────────────────────────────────── */}
         {nowMs >= viewStart && nowMs <= viewEnd && (
           <g className="now-line">
-            <line x1={getX(nowMs)} x2={getX(nowMs)} y1={0} y2={CHART_HEIGHT}
+            <line x1={getX(nowMs)} x2={getX(nowMs)} y1={0} y2={chartHeight}
               stroke="var(--status-critical)" strokeWidth={2} />
             <rect x={getX(nowMs) - 16} y={0} width={32} height={14} fill="var(--status-critical)" rx={2} />
             <text x={getX(nowMs)} y={10} textAnchor="middle" fontSize={8} fill="#fff" fontWeight={700}

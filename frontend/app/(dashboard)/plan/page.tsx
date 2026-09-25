@@ -327,7 +327,7 @@ function BlockPlanPageContent() {
         {/* ─── Main area: Chart/Register + Detail Panel ────── */}
         <div className="flex-1 flex min-h-0">
           {viewMode === "chart" ? (
-            <div className="flex-1 min-w-0 p-3">
+            <div className="flex-1 min-w-0 h-full p-3">
               <BlockPlanChart
                 stations={stations}
                 blocks={planBlocks}

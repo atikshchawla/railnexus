@@ -12,7 +12,9 @@ interface DetailPanelProps {
   stations: Station[];
   onClose: () => void;
   onApplyResolution: (conflictId: string, resolutionIdx: number) => void;
+  onSendForApproval?: (conflictId: string, resolutionIdx: number) => void;
   onApproveBlock: (blockId: string) => void;
+  onSelectConflict?: (conflictId: string) => void;
 }
 
 export default function DetailPanel({
@@ -24,7 +26,9 @@ export default function DetailPanel({
   stations,
   onClose,
   onApplyResolution,
+  onSendForApproval,
   onApproveBlock,
+  onSelectConflict,
 }: DetailPanelProps) {
   const resolveStation = (id: string) => stations.find(s => s.id === id)?.name ?? id;
 
@@ -86,7 +90,11 @@ export default function DetailPanel({
             <div className="pt-3 border-t border-border-default">
               <h5 className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-2">Conflicts ({relatedConflicts.length})</h5>
               {relatedConflicts.map(c => (
-                <div key={c.id} className="text-[12px] p-2 border border-border-default mb-1">
+                <div 
+                  key={c.id} 
+                  className="text-[12px] p-2 border border-border-default mb-1 cursor-pointer hover:bg-surface transition-colors"
+                  onClick={() => onSelectConflict?.(c.id)}
+                >
                   <span className="font-medium text-critical">{c.id}</span>
                   <span className="text-text-secondary ml-1">— {c.overlap_minutes} min overlap with {c.trainId ?? c.otherBlockId}</span>
                 </div>
@@ -153,7 +161,11 @@ export default function DetailPanel({
                 Conflicts ({relatedConflicts.length})
               </h5>
               {relatedConflicts.map(c => (
-                <div key={c.id} className="text-[12px] p-2 border border-critical/30 bg-critical/5 mb-1">
+                <div 
+                  key={c.id} 
+                  className="text-[12px] p-2 border border-critical/30 bg-critical/5 mb-1 cursor-pointer hover:bg-critical/10 transition-colors"
+                  onClick={() => onSelectConflict?.(c.id)}
+                >
                   <span className="font-medium text-critical">{c.id}</span>
                   <span className="text-text-secondary ml-1">— Block {c.blockId}, {c.overlap_minutes} min overlap</span>
                 </div>
@@ -221,7 +233,10 @@ export default function DetailPanel({
                   >
                     Apply
                   </button>
-                  <button className="flex-1 py-1.5 border border-border-default text-text-primary text-[11px] font-medium hover:bg-surface transition-colors">
+                  <button 
+                    onClick={() => onSendForApproval?.(conflict.id, i)}
+                    className="flex-1 py-1.5 border border-border-default text-text-primary text-[11px] font-medium hover:bg-surface transition-colors"
+                  >
                     Send for approval
                   </button>
                 </div>

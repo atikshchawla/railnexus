@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useRef, useState, useMemo } from "react";
 import {
   loadDashboardData,
   optimizeRequests,
@@ -21,6 +21,7 @@ interface DashboardContextValue {
   optimizerError: string | null;
   rerunOptimizer: () => void;
   saveOverrides: (overrides: Record<string, OperatorOverride>) => Promise<void>;
+  resolveConflict: (conflictId: string, resolutionAction: "Merged" | "Sequenced" | "Escalated") => void;
 }
 
 const emptyData: DashboardData = {
@@ -43,6 +44,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [optimizer, setOptimizer] = useState<OptimizerResponse | null>(null);
   const [optimizerLoading, setOptimizerLoading] = useState(false);
   const [optimizerError, setOptimizerError] = useState<string | null>(null);
+  const [resolvedConflicts, setResolvedConflicts] = useState<Record<string, { action: "Merged" | "Sequenced" | "Escalated", actor: string, timestamp: string }>>({});
   // Track the last ID set we optimized so we only re-run when it changes
   const lastOptimizedKey = useRef<string>("");
 
@@ -124,10 +126,33 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     [optimizer],
   );
 
+  const resolveConflict = useCallback((conflictId: string, resolutionAction: "Merged" | "Sequenced" | "Escalated") => {
+    setResolvedConflicts(prev => ({
+      ...prev,
+      [conflictId]: {
+        action: resolutionAction,
+        actor: "Current User",
+        timestamp: new Date().toISOString()
+      }
+    }));
+  }, []);
+
+  // Merge resolved conflicts into the data being provided
+  const overriddenData = useMemo(() => {
+    return {
+      ...data,
+      conflicts: data.conflicts.map(c => 
+        resolvedConflicts[c.id] 
+          ? { ...c, status: "Resolved" as const, resolution: resolvedConflicts[c.id] } 
+          : c
+      )
+    };
+  }, [data, resolvedConflicts]);
+
   return (
     <DashboardContext.Provider
       value={{
-        data,
+        data: overriddenData,
         loading,
         error,
         refresh: () => setRefreshToken((t) => t + 1),
@@ -136,6 +161,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         optimizerError,
         rerunOptimizer,
         saveOverrides,
+        resolveConflict,
       }}
     >
       {children}

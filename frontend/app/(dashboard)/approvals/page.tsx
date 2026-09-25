@@ -199,7 +199,7 @@ function ShadowGroupRows({
 // ── Main page ─────────────────────────────────────────────────────────
 
 export default function ApprovalsPage() {
-  const { data, optimizer, optimizerLoading, optimizerError, rerunOptimizer, saveOverrides } =
+  const { data, optimizer, optimizerLoading, optimizerError, rerunOptimizer, saveOverrides, refresh } =
     useDashboardData();
   const { blocks } = data;
 
@@ -291,6 +291,7 @@ export default function ApprovalsPage() {
     e.stopPropagation();
     try {
       await Promise.all(di.items.map((item) => updateRequestStatus(item.id, "approved")));
+      refresh();
     } catch (err) {
       alert(`Failed to approve group: ${err}`);
     }
@@ -300,6 +301,7 @@ export default function ApprovalsPage() {
     e.stopPropagation();
     try {
       await updateRequestStatus(id, "approved");
+      refresh();
     } catch (err) {
       alert(`Failed to approve ${id}: ${err}`);
     }

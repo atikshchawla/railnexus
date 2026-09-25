@@ -17,6 +17,20 @@ function formatMinute(minute: number | null | undefined) {
   return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
 }
 
+function parseBlockTimes(startIso: string, endIso: string): { start: number; end: number } {
+  const dStart = new Date(startIso);
+  const dEnd = new Date(endIso);
+  if (isNaN(dStart.getTime())) {
+    return { start: 8 * HOUR_MS, end: 10 * HOUR_MS };
+  }
+  const startMs = (dStart.getHours() * 3600 + dStart.getMinutes() * 60 + dStart.getSeconds()) * 1000;
+  let duration = !isNaN(dEnd.getTime()) ? dEnd.getTime() - dStart.getTime() : 2 * HOUR_MS;
+  if (duration <= 0 || duration > 24 * HOUR_MS) {
+    duration = 2 * HOUR_MS;
+  }
+  return { start: startMs, end: Math.min(DAY_MS, startMs + duration) };
+}
+
 function BlockPlanPageContent() {
   const searchParams = useSearchParams();
   const { data } = useDashboardData();
@@ -26,19 +40,23 @@ function BlockPlanPageContent() {
   const [isOptimizing, setIsOptimizing] = useState(false);
 
   // ─── State ─────────────────────────────────────────────
+  const [selectedDate, setSelectedDate] = useState("04 Sep 2026");
   const [blocks, setBlocks] = useState<ChartBlock[]>(() => 
-    data.blocks.map(b => ({
-      id: b.id,
-      department: b.department,
-      km_start: b.location.kmStart,
-      km_end: b.location.kmEnd,
-      time_start: new Date(b.scheduledWindow.start).getTime() - new Date().setHours(0,0,0,0),
-      time_end: new Date(b.scheduledWindow.end).getTime() - new Date().setHours(0,0,0,0),
-      status: b.status.toLowerCase(),
-      isShadow: false,
-      label: b.description,
-      priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low"
-    }) as ChartBlock)
+    data.blocks.map(b => {
+      const times = parseBlockTimes(b.scheduledWindow.start, b.scheduledWindow.end);
+      return {
+        id: b.id,
+        department: b.department,
+        km_start: b.location.kmStart,
+        km_end: b.location.kmEnd,
+        time_start: times.start,
+        time_end: times.end,
+        status: b.status.toLowerCase(),
+        isShadow: false,
+        label: b.description,
+        priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low"
+      } as ChartBlock;
+    })
   );
   const [viewStart, setViewStart] = useState(0);
   const [viewEnd, setViewEnd] = useState(DAY_MS);
@@ -115,18 +133,21 @@ function BlockPlanPageContent() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBlocks(data.blocks.map(b => ({
-      id: b.id,
-      department: b.department,
-      km_start: b.location.kmStart,
-      km_end: b.location.kmEnd,
-      time_start: new Date(b.scheduledWindow.start).getTime() - new Date().setHours(0, 0, 0, 0),
-      time_end: new Date(b.scheduledWindow.end).getTime() - new Date().setHours(0, 0, 0, 0),
-      status: b.status.toLowerCase(),
-      isShadow: false,
-      label: b.description,
-      priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low",
-    })));
+    setBlocks(data.blocks.map(b => {
+      const times = parseBlockTimes(b.scheduledWindow.start, b.scheduledWindow.end);
+      return {
+        id: b.id,
+        department: b.department,
+        km_start: b.location.kmStart,
+        km_end: b.location.kmEnd,
+        time_start: times.start,
+        time_end: times.end,
+        status: b.status.toLowerCase(),
+        isShadow: false,
+        label: b.description,
+        priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low",
+      };
+    }));
   }, [data.blocks]);
 
   // ─── NOW line — recompute every 30 seconds ─────────────
@@ -206,11 +227,82 @@ function BlockPlanPageContent() {
     }));
   }, []);
 
-  const handleApplyResolution = useCallback((conflictId: string, _resIdx: number) => {
-    // For demo: remove the conflicting block or shift it
-    // In production this would call the API
-    console.log(`Applied resolution ${_resIdx} for ${conflictId}`);
-  }, []);
+  const handleApplyResolution = useCallback((conflictId: string, resIdx: number) => {
+    const conflict = conflicts.find(c => c.id === conflictId);
+    if (!conflict) return;
+
+    if (conflict.trainId) {
+      // Train vs Block
+      if (resIdx === 1) {
+        // Reschedule block after train passes
+        setBlocks(prev => prev.map(b => {
+          if (b.id === conflict.blockId) {
+            const shift = conflict.overlapMinutes * 60_000 + 10 * 60_000; // shift beyond overlap
+            return { ...b, time_start: b.time_start + shift, time_end: b.time_end + shift };
+          }
+          return b;
+        }));
+      }
+    } else if (conflict.otherBlockId) {
+      // Block vs Block
+      if (resIdx === 0) {
+        // Stagger: shift block B to start after block A
+        setBlocks(prev => prev.map(b => {
+          if (b.id === conflict.otherBlockId) {
+            const shift = (conflict.time_end - b.time_start) + 5 * 60_000; // shift 5 mins after A ends
+            return { ...b, time_start: b.time_start + shift, time_end: b.time_end + shift };
+          }
+          return b;
+        }));
+      } else if (resIdx === 1) {
+        // Merge: expand A to cover B, and remove B (or mark cancelled)
+        setBlocks(prev => {
+          const blockB = prev.find(b => b.id === conflict.otherBlockId);
+          if (!blockB) return prev;
+          return prev.map(b => {
+            if (b.id === conflict.blockId) {
+              return { 
+                ...b, 
+                time_start: Math.min(b.time_start, blockB.time_start), 
+                time_end: Math.max(b.time_end, blockB.time_end),
+                km_start: Math.min(b.km_start, blockB.km_start),
+                km_end: Math.max(b.km_end, blockB.km_end)
+              };
+            }
+            if (b.id === conflict.otherBlockId) {
+              return { ...b, status: "rejected" as const };
+            }
+            return b;
+          });
+        });
+      } else if (resIdx === 2) {
+        // Cancel lower priority block
+        setBlocks(prev => {
+          const bA = prev.find(b => b.id === conflict.blockId);
+          const bB = prev.find(b => b.id === conflict.otherBlockId);
+          if (!bA || !bB) return prev;
+          const cancelId = (bA.priorityTier > bB.priorityTier) ? bA.id : bB.id; // basic string compare works for P1 vs P2
+          return prev.map(b => b.id === cancelId ? { ...b, status: "rejected" as const } : b);
+        });
+      }
+    }
+  }, [conflicts]);
+
+  const handleSendForApproval = useCallback((conflictId: string, resIdx: number) => {
+    // First apply the change
+    handleApplyResolution(conflictId, resIdx);
+    // Then set the affected block(s) to "proposed" status so they can be approved later
+    const conflict = conflicts.find(c => c.id === conflictId);
+    if (!conflict) return;
+
+    setBlocks(prev => prev.map(b => {
+      if (b.id === conflict.blockId || b.id === conflict.otherBlockId) {
+        return { ...b, status: "proposed" as const };
+      }
+      return b;
+    }));
+    handleClose(); // Close the panel after submitting
+  }, [conflicts, handleApplyResolution, handleClose]);
 
   const handleFocusElement = useCallback((id: string, type: "block" | "train" | "conflict") => {
     setViewMode("chart");
@@ -223,7 +315,11 @@ function BlockPlanPageContent() {
 
     let mid = DAY_MS / 2;
     if (block) mid = (block.time_start + block.time_end) / 2;
-    else if (train) mid = (train.stops[0]?.time ?? 0 + (train.stops[train.stops.length - 1]?.time ?? DAY_MS)) / 2;
+    else if (train) {
+      const firstTime = train.stops[0]?.time ?? 0;
+      const lastTime = train.stops[train.stops.length - 1]?.time ?? DAY_MS;
+      mid = (firstTime + lastTime) / 2;
+    }
     else if (conflict) mid = conflict.intersectionTime;
 
     const [s, e] = clampView(mid - 3 * HOUR_MS, mid + 3 * HOUR_MS);
@@ -238,7 +334,7 @@ function BlockPlanPageContent() {
     <>
       <TopBar
         title="Block plan"
-        subtitle="Section: Chennai division — all departments"
+        subtitle={`Section: Chennai division — all departments • ${selectedDate}`}
       />
 
       {isOptimizing && (
@@ -274,7 +370,10 @@ function BlockPlanPageContent() {
             ))}
           </div>
 
-          <DateNav currentDate="05 Sep 2026" onPrev={() => {}} onNext={() => {}} />
+          <DateNav
+            currentDate={selectedDate}
+            onDateChange={setSelectedDate}
+          />
 
           {/* Zoom controls */}
           <div className="flex items-center gap-1 ml-auto">
@@ -363,7 +462,9 @@ function BlockPlanPageContent() {
               stations={stations}
               onClose={handleClose}
               onApplyResolution={handleApplyResolution}
+              onSendForApproval={handleSendForApproval}
               onApproveBlock={handleApproveBlock}
+              onSelectConflict={(id) => handleSelect(id, "conflict")}
             />
           )}
         </div>

@@ -140,7 +140,7 @@ function PreviewModal({
 // ─── Main Page ────────────────────────────────────────────────────────
 
 export default function ConflictsPage() {
-  const { data } = useDashboardData();
+  const { data, resolveConflict } = useDashboardData();
   const { blocks, conflicts, trains: trainPaths } = data;
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
@@ -181,7 +181,10 @@ export default function ConflictsPage() {
           trainPaths={trainPaths}
           actionName={previewAction.action}
           onClose={() => setPreviewAction(null)}
-          onConfirm={() => { alert(`Audit Log: ${previewAction.action} executed on ${previewAction.conflict.id}`); setPreviewAction(null); }}
+          onConfirm={() => {
+            resolveConflict(previewAction.conflict.id, previewAction.action === "Merge" ? "Merged" : "Sequenced");
+            setPreviewAction(null);
+          }}
         />
       )}
 
@@ -271,7 +274,10 @@ export default function ConflictsPage() {
                     <Link href={`/plan?focus=${c.id}`} className="mr-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium border border-border-default text-text-primary hover:bg-surface transition-colors bg-surface">
                       <Eye size={13} strokeWidth={2} /> View in chart
                     </Link>
-                    <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium border border-border-default text-text-primary hover:bg-surface transition-colors bg-surface">
+                    <button 
+                      onClick={() => resolveConflict(c.id, "Escalated")}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium border border-border-default text-text-primary hover:bg-surface transition-colors bg-surface"
+                    >
                       <ArrowUpRight size={13} strokeWidth={2} /> Escalate
                     </button>
                     <button onClick={() => setPreviewAction({conflict: c, action: "Sequence"})} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium border border-border-default text-text-primary hover:bg-surface transition-colors bg-surface">

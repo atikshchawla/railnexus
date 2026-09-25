@@ -22,3 +22,4 @@ class PipelineOptimizeRequest(BaseModel):
     max_group_size: int = 4
     max_spatial_gap_km: float = 5.0
     weights: dict[str, float] = {}
+    force_rerun: bool = False  # bypass cache and run fresh

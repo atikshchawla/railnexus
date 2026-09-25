@@ -1,175 +1,216 @@
 "use client";
 
 import { useState } from "react";
-import { X, Clock, Train, AlertTriangle } from "lucide-react";
+import { X, Clock, Train, AlertTriangle, Unlink, Info } from "lucide-react";
 import type { DisplayItem } from "@/app/(dashboard)/approvals/page";
+import type { OperatorOverride } from "@/lib/api";
+import { DepartmentBadge } from "@/components/shared";
 
 interface AdjustModalProps {
   displayItem: DisplayItem;
   onClose: () => void;
+  onSave: (groupId: string, override: OperatorOverride) => Promise<void>;
 }
 
-export function AdjustModal({ displayItem, onClose }: AdjustModalProps) {
-  // Extract initial start time from the block
-  const originalStartMinute = displayItem.isGrouped 
-    ? (displayItem.optBlock.scheduled_start_minute || 0)
-    : (new Date(displayItem.item.scheduledWindow.start).getHours() * 60 + new Date(displayItem.item.scheduledWindow.start).getMinutes());
-    
-  const originalEndMinute = displayItem.isGrouped 
-    ? (displayItem.optBlock.scheduled_end_minute || 0)
-    : (new Date(displayItem.item.scheduledWindow.end).getHours() * 60 + new Date(displayItem.item.scheduledWindow.end).getMinutes());
+export function AdjustModal({ displayItem, onClose, onSave }: AdjustModalProps) {
+  const isGrouped = displayItem.isGrouped;
 
-  const duration = originalEndMinute - originalStartMinute;
+  const originalStartMinute = isGrouped
+    ? (displayItem.optBlock.scheduled_start_minute ?? 0)
+    : new Date(displayItem.item.scheduledWindow.start).getHours() * 60 +
+      new Date(displayItem.item.scheduledWindow.start).getMinutes();
+
+  const originalEndMinute = isGrouped
+    ? (displayItem.optBlock.scheduled_end_minute ?? 0)
+    : new Date(displayItem.item.scheduledWindow.end).getHours() * 60 +
+      new Date(displayItem.item.scheduledWindow.end).getMinutes();
+
+  const originalDuration = originalEndMinute - originalStartMinute;
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toTimeString = (minutes: number) =>
+    `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
 
   const [startMinute, setStartMinute] = useState(originalStartMinute);
+  const [endMinute, setEndMinute] = useState(originalEndMinute);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const startHourStr = String(Math.floor(startMinute / 60)).padStart(2, '0');
-  const startMinStr = String(startMinute % 60).padStart(2, '0');
-  const [timeInput, setTimeInput] = useState(`${startHourStr}:${startMinStr}`);
+  const deviation = startMinute - originalStartMinute; // can be negative
+  const newDuration = endMinute - startMinute;
 
-  // Base predicted impacts
-  const baseTrainImpact = displayItem.isGrouped 
-    ? displayItem.optBlock.train_impact_minutes 
-    : (displayItem.item.mlPrediction?.totalDelayMinutes || 45);
+  // Simulated impact: +0.5 min train delay per minute of time shift
+  const baseImpact = isGrouped
+    ? displayItem.optBlock.train_impact_minutes
+    : displayItem.item.mlPrediction?.totalDelayMinutes ?? 30;
+  const adjustedImpact = Math.max(0, baseImpact + Math.abs(deviation) * 0.5);
 
-  // Calculate dynamic impact based on time shift
-  // (In a real system, shifting the time would call the backend optimizer again. Here we simulate.)
-  const shiftDiff = Math.abs(startMinute - originalStartMinute);
-  const dynamicTrainImpact = baseTrainImpact + (shiftDiff * 0.5); 
-  const affectedTrainsCount = displayItem.isGrouped 
-    ? Math.max(3, Math.floor(dynamicTrainImpact / 15)) 
-    : (displayItem.item.mlPrediction?.trainsAffected || 2);
-
-  const endMinute = startMinute + duration;
-  
-  const formatTime = (totalMin: number) => {
-    const h = Math.floor(totalMin / 60) % 24;
-    const m = totalMin % 60;
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
-  };
-
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTimeInput(e.target.value);
-    const [h, m] = e.target.value.split(':').map(Number);
+  const handleStartChange = (val: string) => {
+    const [h, m] = val.split(":").map(Number);
     if (!isNaN(h) && !isNaN(m)) {
-      setStartMinute(h * 60 + m);
+      const newStart = h * 60 + m;
+      setStartMinute(newStart);
+      // Keep duration constant when moving start
+      setEndMinute(newStart + originalDuration);
     }
   };
 
-  const title = displayItem.isGrouped ? "Adjust Shadow Block" : "Adjust Individual Block";
+  const handleEndChange = (val: string) => {
+    const [h, m] = val.split(":").map(Number);
+    if (!isNaN(h) && !isNaN(m)) setEndMinute(h * 60 + m);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const id = isGrouped ? displayItem.id : displayItem.item.id;
+    const override: OperatorOverride = {
+      start_minute: startMinute,
+      end_minute: endMinute,
+      notes: notes.trim() || undefined,
+    };
+    try {
+      await onSave(id, override);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const title = isGrouped ? `Adjust Shadow Block — ${displayItem.id}` : `Adjust Block — ${displayItem.item.id}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface rounded-lg shadow-xl w-full max-w-3xl overflow-hidden border border-border-default flex flex-col max-h-[90vh]">
-        
+      <div className="bg-surface w-full max-w-2xl overflow-hidden border border-border-default flex flex-col max-h-[90vh] shadow-xl">
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-default bg-surface-sunken">
-          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border-default bg-surface-sunken shrink-0">
+          <h2 className="text-[15px] font-semibold text-text-primary">{title}</h2>
           <button onClick={onClose} className="text-text-secondary hover:text-text-primary transition-colors">
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Metadata Section */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <p className="text-[12px] text-text-secondary uppercase tracking-wider font-semibold">Affected Requests</p>
-              <p className="text-[14px] text-text-primary">
-                {displayItem.isGrouped ? displayItem.items.map(i => i.id).join(", ") : displayItem.item.id}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[12px] text-text-secondary uppercase tracking-wider font-semibold">Total Duration</p>
-              <p className="text-[14px] text-text-primary flex items-center gap-1.5">
-                <Clock size={15} className="text-text-secondary" /> {Math.round(duration)} minutes
-              </p>
-            </div>
-          </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
 
-          {/* Time Slider & Impact Section */}
-          <div className="bg-surface-sunken border border-border-default rounded p-5 space-y-5">
+          {/* Constituent requests (shadow blocks only) */}
+          {isGrouped && (
+            <div>
+              <p className="text-[11px] uppercase tracking-wide font-semibold text-text-secondary mb-2">
+                Constituent Requests ({displayItem.items.length})
+              </p>
+              <div className="border border-border-default divide-y divide-border-default">
+                {displayItem.items.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 px-3 py-2 bg-surface text-[12px]">
+                    <DepartmentBadge dept={item.department} />
+                    <span className="font-mono font-medium text-text-primary">{item.id}</span>
+                    <span className="text-text-secondary truncate flex-1">{item.description}</span>
+                    <span className="text-text-secondary whitespace-nowrap text-[11px]">
+                      Km {item.location.kmStart} ({item.location.line})
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-text-secondary mt-1.5 flex items-center gap-1">
+                <Info size={11} />
+                These requests share a single possession window. Adjusting the time shifts all of
+                them together. Use &quot;Dissolve&quot; to approve individually.
+              </p>
+            </div>
+          )}
+
+          {/* Time adjustment */}
+          <div className="border border-border-default p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-text-primary text-[14px]">Simulation Adjustments</h3>
-              {shiftDiff > 0 && (
-                <span className="text-[12px] text-warning flex items-center gap-1.5">
-                  <AlertTriangle size={14} /> Deviation from ML optimum
+              <h3 className="text-[13px] font-semibold text-text-primary flex items-center gap-2">
+                <Clock size={14} className="text-text-secondary" /> Time Window
+              </h3>
+              {deviation !== 0 && (
+                <span className="text-[11px] text-warning flex items-center gap-1">
+                  <AlertTriangle size={12} />
+                  {Math.abs(deviation)} min {deviation > 0 ? "later" : "earlier"} than ML optimum
                 </span>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[12px] text-text-secondary mb-1.5">New Start Time</label>
-                <input 
-                  type="time" 
-                  value={timeInput}
-                  onChange={handleTimeChange}
-                  className="w-full bg-surface border border-border-default rounded px-3 py-2 text-text-primary text-[14px]"
+                <label className="block text-[11px] text-text-secondary mb-1">Start time</label>
+                <input
+                  type="time"
+                  value={toTimeString(startMinute)}
+                  onChange={(e) => handleStartChange(e.target.value)}
+                  className="w-full bg-surface border border-border-default px-3 py-2 text-text-primary text-[13px] focus:border-brand focus:outline-none"
                 />
-                <p className="text-[12px] text-text-secondary mt-1.5">
-                  Ends at: <span className="font-medium text-text-primary">{formatTime(endMinute)}</span>
+              </div>
+              <div>
+                <label className="block text-[11px] text-text-secondary mb-1">End time</label>
+                <input
+                  type="time"
+                  value={toTimeString(endMinute)}
+                  onChange={(e) => handleEndChange(e.target.value)}
+                  className="w-full bg-surface border border-border-default px-3 py-2 text-text-primary text-[13px] focus:border-brand focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-px bg-border-default border border-border-default text-[12px]">
+              <div className="bg-surface px-3 py-2">
+                <p className="text-text-secondary text-[10px] uppercase mb-0.5">Duration</p>
+                <p className="font-semibold">{Math.max(0, newDuration)} min</p>
+              </div>
+              <div className="bg-surface px-3 py-2">
+                <p className="text-text-secondary text-[10px] uppercase mb-0.5">Original</p>
+                <p className="font-semibold">{originalDuration} min</p>
+              </div>
+              <div className="bg-surface px-3 py-2">
+                <p className="text-text-secondary text-[10px] uppercase mb-0.5">Est. train impact</p>
+                <p className={`font-semibold ${adjustedImpact > baseImpact ? "text-warning" : ""}`}>
+                  {Math.round(adjustedImpact)} min
+                  {adjustedImpact > baseImpact && (
+                    <span className="text-[10px] text-warning ml-1">
+                      (+{Math.round(adjustedImpact - baseImpact)})
+                    </span>
+                  )}
                 </p>
               </div>
-              
-              <div className="bg-surface border border-border-default rounded p-4 flex flex-col justify-center">
-                <p className="text-[12px] text-text-secondary mb-1">Predicted Train Impacts</p>
-                <div className="flex items-end gap-3">
-                  <div className="text-2xl font-semibold text-critical">
-                    {Math.round(dynamicTrainImpact)}<span className="text-[14px] text-text-secondary font-normal ml-1">min</span>
-                  </div>
-                  <div className="text-[13px] text-text-secondary mb-1 flex items-center gap-1">
-                    <Train size={14} /> {affectedTrainsCount} trains affected
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
-          {/* Interactive Timeline Mock */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-text-primary text-[14px]">Timeline View</h3>
-            <div className="border border-border-default rounded bg-surface overflow-x-auto relative h-[150px]">
-              {/* Timeline Grid Background */}
-              <div className="absolute inset-0" style={{ backgroundSize: '100px 100%', backgroundImage: 'linear-gradient(to right, var(--color-border-default) 1px, transparent 1px)' }} />
-              
-              <div className="relative w-[1440px] h-full" style={{ left: `-${Math.max(0, startMinute - 100)}px` }}>
-                
-                {/* Adjacent Train Paths (Mocked based on dynamic impact) */}
-                <div className="absolute top-[30px] h-[4px] bg-brand/40 rounded" style={{ left: `${startMinute - 50}px`, width: '120px' }} title="Train 1204" />
-                <div className="absolute top-[50px] h-[4px] bg-brand/40 rounded" style={{ left: `${endMinute - 20}px`, width: '150px' }} title="Train 8492" />
-                {shiftDiff > 30 && (
-                  <div className="absolute top-[70px] h-[4px] bg-critical/60 rounded animate-pulse" style={{ left: `${startMinute + 10}px`, width: '90px' }} title="Conflict Train" />
-                )}
-
-                {/* The Dragged Block */}
-                <div 
-                  className="absolute top-[20px] bottom-[20px] bg-warning/20 border-x-2 border-warning shadow-[0_0_15px_rgba(var(--color-warning-rgb),0.1)] flex items-center justify-center transition-all duration-300"
-                  style={{ left: `${startMinute}px`, width: `${duration}px` }}
-                >
-                  <span className="text-[11px] font-bold text-warning uppercase whitespace-nowrap overflow-hidden px-2">
-                    {displayItem.isGrouped ? "Shadow Block" : "Block Window"}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <p className="text-[11px] text-text-secondary text-center">
-              The timeline shows the relative positioning of the block window (yellow) against scheduled train movements.
-            </p>
+          {/* Operator notes */}
+          <div>
+            <label className="block text-[11px] text-text-secondary mb-1.5 uppercase tracking-wide font-semibold">
+              Reason / Notes (optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              placeholder="e.g. Shifted to avoid peak passenger window, coordinated with ENGG team…"
+              className="w-full bg-surface border border-border-default px-3 py-2 text-[12px] text-text-primary resize-none focus:border-brand focus:outline-none"
+            />
           </div>
-          
+
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-border-default bg-surface-sunken flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-[13px] font-medium text-text-primary border border-border-default hover:bg-surface transition-colors bg-transparent">
-            Cancel
-          </button>
-          <button onClick={onClose} className="px-4 py-2 text-[13px] font-medium text-white bg-brand hover:bg-brand-hover transition-colors">
-            Save Adjustment
-          </button>
+        <div className="px-5 py-3 border-t border-border-default bg-surface-sunken flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+            <Train size={12} /> Adjustment will be saved to the DB and reflected across all pages
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 text-[12px] font-medium text-text-primary border border-border-default hover:bg-surface-sunken transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || newDuration <= 0}
+              className="px-4 py-1.5 text-[12px] font-medium text-white bg-brand hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving…" : "Save adjustment"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

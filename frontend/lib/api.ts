@@ -82,6 +82,17 @@ export interface OptimizerResponse {
   ungrouped_request_ids: string[];
   totals: Record<string, number | string>;
   model_outputs: Record<string, Record<string, number | string>>;
+  skipped_request_ids?: string[];
+  // Cache metadata — present when result is served from DB cache
+  _cache_id?: string;
+  _operator_overrides?: Record<string, OperatorOverride>;
+}
+
+export interface OperatorOverride {
+  start_minute?: number;
+  end_minute?: number;
+  dissolved?: boolean;   // user broke the group apart
+  notes?: string;
 }
 
 export interface DashboardData {
@@ -237,16 +248,31 @@ export async function loadDashboardData(): Promise<DashboardData> {
   };
 }
 
-export async function optimizeRequests(requestIds: string[]): Promise<OptimizerResponse> {
+export async function optimizeRequests(
+  requestIds: string[],
+  forceRerun = false,
+): Promise<OptimizerResponse> {
   return fetch(`${API_BASE_URL}/optimizer/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ request_ids: requestIds }),
+    body: JSON.stringify({ request_ids: requestIds, force_rerun: forceRerun }),
     cache: "no-store",
   }).then(async (response) => {
     if (!response.ok) throw new Error(`RailNexus optimizer returned ${response.status}`);
     return response.json() as Promise<OptimizerResponse>;
   });
+}
+
+export async function saveOptimizerOverrides(
+  cacheId: string,
+  overrides: Record<string, OperatorOverride>,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/optimizer/overrides/${cacheId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(overrides),
+  });
+  if (!response.ok) throw new Error(`Failed to save overrides: ${response.status}`);
 }
 
 export async function updateRequestStatus(id: string, status: string): Promise<MaintenanceResponse> {

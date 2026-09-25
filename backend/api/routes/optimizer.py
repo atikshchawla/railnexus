@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 
 from ai_ml.optimizer import OptimizerWeights
 from backend.api.schemas.prediction import PipelineOptimizeRequest
 from backend.database.connection import get_db
 from backend.repositories.maintenance_repository import MaintenanceRepository
+from backend.repositories.optimized_block_repository import OptimizedBlockRepository
 from backend.services.maintenance_service import MaintenanceService
 from backend.services.prediction_service import get_pipeline
 from backend.repositories.topology_repository import TopologyRepository
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/optimizer", tags=["optimizer"])
 repository = MaintenanceRepository()
 service = MaintenanceService(repository)
 topology_repository = TopologyRepository()
+cache_repo = OptimizedBlockRepository()
 
 # Minimum set of ML features the pipeline needs to score a request.
 _REQUIRED_FEATURES = {
@@ -31,12 +33,18 @@ def _is_pipeline_ready(pipeline_dict: dict) -> bool:
 
 @router.post("/optimize")
 def optimize(payload: PipelineOptimizeRequest, db: Session = Depends(get_db)):
+    """Run the ML optimizer; serve a cached result if the request set is unchanged."""
     requests = [repository.get(db, request_id) for request_id in payload.request_ids]
     if any(request is None for request in requests):
         raise HTTPException(status_code=404, detail="one or more maintenance requests not found")
 
-    # Normalise every request into the shape the pipeline expects, then
-    # separate those that are ML-ready from those that aren't.
+    # ── Serve cached result if available ───────────────────────────────
+    if not payload.force_rerun:
+        cached = cache_repo.get_cached(db, payload.request_ids)
+        if cached:
+            return cached
+
+    # ── Normalise and filter to ML-ready requests ──────────────────────
     all_pipeline = [(r, service.to_pipeline_request(r)) for r in requests if r is not None]
     pipeline_ready = [(r, p) for r, p in all_pipeline if _is_pipeline_ready(p)]
     skipped = [r.id for r, p in all_pipeline if not _is_pipeline_ready(p)]
@@ -61,6 +69,23 @@ def optimize(payload: PipelineOptimizeRequest, db: Session = Depends(get_db)):
         )
         if skipped:
             result["skipped_request_ids"] = skipped
+
+        # ── Persist to cache ───────────────────────────────────────────
+        cache_repo.save(db, payload.request_ids, result)
         return result
+
     except (KeyError, TypeError, ValueError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@router.post("/overrides/{cache_id}")
+def save_overrides(
+    cache_id: str,
+    overrides: dict = Body(...),
+    db: Session = Depends(get_db),
+):
+    """Persist operator time/dissolution overrides for a cached optimizer result."""
+    ok = cache_repo.save_overrides(db, cache_id, overrides)
+    if not ok:
+        raise HTTPException(status_code=404, detail="optimizer cache entry not found")
+    return {"ok": True, "cache_id": cache_id}

@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import { TopBar } from "@/components/layout";
-import { Pagination } from "@/components/shared";
 import { useDashboardData } from "@/lib/dashboard-context";
 import { isBatchEligible } from "@/lib/rules";
 import {
@@ -10,123 +9,305 @@ import {
   UrgencyText,
   UrgencyBorder,
   ConflictIndicator,
-  StatusPill,
   AcronymLegend,
   ConfidenceDisplay,
 } from "@/components/shared";
-import { Filter, CheckSquare, Settings2, XSquare, Eye, Layers } from "lucide-react";
-import Link from "next/link";
+import {
+  Filter, CheckSquare, Settings2, Layers, ChevronDown, ChevronRight,
+  Unlink, RefreshCw, AlertTriangle, Info,
+} from "lucide-react";
 import type { BlockRecord } from "@/lib/types";
-import { optimizeRequests, updateRequestStatus, type OptimizerResponse, type OptimizedBlockResponse } from "@/lib/api";
+import type { OptimizedBlockResponse, OperatorOverride } from "@/lib/api";
+import { updateRequestStatus } from "@/lib/api";
 import { AdjustModal } from "@/components/dashboard";
 
-const PAGE_SIZE = 10;
+// ── Types ─────────────────────────────────────────────────────────────
 
-type DisplayItem = 
+export type DisplayItem =
   | { isGrouped: false; item: BlockRecord }
-  | { isGrouped: true; id: string; optBlock: OptimizedBlockResponse; items: BlockRecord[] };
+  | {
+      isGrouped: true;
+      id: string;
+      optBlock: OptimizedBlockResponse;
+      items: BlockRecord[];
+      override?: OperatorOverride;
+    };
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+function formatMinutes(total: number): string {
+  const h = Math.floor(total / 60).toString().padStart(2, "0");
+  const m = (total % 60).toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+// ── Sub-component: expanded rows for a shadow block ───────────────────
+
+function ShadowGroupRows({
+  di,
+  onAdjust,
+  onDissolve,
+  onApproveAll,
+  onCollapse,
+}: {
+  di: Extract<DisplayItem, { isGrouped: true }>;
+  onAdjust: () => void;
+  onDissolve: () => void;
+  onApproveAll: (e: React.MouseEvent) => void;
+  onCollapse: () => void;
+}) {
+  const override = di.override;
+  const startMinute = override?.start_minute ?? di.optBlock.scheduled_start_minute ?? 0;
+  const endMinute = override?.end_minute ?? di.optBlock.scheduled_end_minute ?? 0;
+  const saving = di.optBlock.possession_saving_minutes;
+
+  return (
+    <>
+      {/* Group header row — click anywhere to collapse */}
+      <tr
+        className="bg-brand/5 border-l-[3px] border-brand cursor-pointer hover:bg-brand/10 transition-colors"
+        onClick={onCollapse}
+      >
+        <td className="px-3 py-2.5 w-10">
+          <ChevronDown size={14} className="text-brand" />
+        </td>
+        <td className="px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[12px] font-semibold text-brand">{di.id}</span>
+            <span className="text-[10px] uppercase tracking-wide bg-brand/10 text-brand px-1.5 py-0.5 rounded-sm font-semibold">
+              Shadow Block
+            </span>
+          </div>
+        </td>
+        <td className="px-3 py-2.5">
+          <div className="flex flex-wrap gap-1">
+            {Array.from(new Set(di.items.map((i) => i.department))).map((d) => (
+              <DepartmentBadge key={d} dept={d} />
+            ))}
+          </div>
+        </td>
+        {/* Description col — shows the grouping rationale */}
+        <td className="px-3 py-2.5 text-[11px] text-text-secondary">
+          {di.items.length} requests grouped &middot; saves{" "}
+          <span className="font-medium text-positive">{saving.toFixed(0)} min</span> possession
+        </td>
+        {/* Schedule col */}
+        <td className="px-3 py-2.5 text-[12px] font-medium text-text-primary whitespace-nowrap">
+          {override?.start_minute != null ? (
+            <span className="text-warning">
+              {formatMinutes(startMinute)} – {formatMinutes(endMinute)}
+              <span className="text-[10px] ml-1">(adjusted)</span>
+            </span>
+          ) : (
+            `${formatMinutes(startMinute)} – ${formatMinutes(endMinute)}`
+          )}
+        </td>
+        <td className="px-3 py-2.5">
+          <UrgencyText tier="warning" text="Optimized" />
+        </td>
+        <td className="px-3 py-2.5 text-[11px] text-text-secondary">
+          Saves {saving.toFixed(0)} min possession
+        </td>
+        <td className="px-3 py-2.5">
+          <div className="flex items-center justify-end gap-1.5 flex-nowrap">
+            <button
+              onClick={(e) => { e.stopPropagation(); onDissolve(); }}
+              title="Break group — approve each request individually"
+              className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] border border-border-default text-text-secondary hover:text-critical hover:border-critical hover:bg-critical/5 transition-colors whitespace-nowrap"
+            >
+              <Unlink size={11} strokeWidth={2} /> Dissolve
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAdjust(); }}
+              className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] border border-brand text-brand hover:bg-brand/10 transition-colors bg-surface whitespace-nowrap"
+            >
+              <Settings2 size={11} strokeWidth={2} /> Adjust
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onApproveAll(e); }}
+              className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] bg-brand text-white hover:bg-brand-hover transition-colors whitespace-nowrap"
+            >
+              <CheckSquare size={11} strokeWidth={2} /> Approve all
+            </button>
+          </div>
+        </td>
+      </tr>
+
+      {/* Constituent request sub-rows */}
+      {di.items.map((item, idx) => {
+        const breachText =
+          item.urgency.timeToBreachHours === null
+            ? "Routine"
+            : `${Math.ceil(item.urgency.timeToBreachHours / 24)} days`;
+        const isLast = idx === di.items.length - 1;
+
+        return (
+          <tr
+            key={item.id}
+            className={`bg-brand/[0.02] border-l-[3px] border-brand/30 text-[12px] ${isLast ? "border-b border-b-border-default" : ""}`}
+          >
+            <td className="pl-8 pr-3 py-2">
+              <span className="text-[10px] text-text-secondary font-mono">#{idx + 1}</span>
+            </td>
+            <td className="px-3 py-2">
+              <span className="font-mono text-[11px] font-medium text-text-primary">{item.id}</span>
+              {item.conflict && item.conflict.status === "Unresolved" && (
+                <div className="mt-0.5">
+                  <ConflictIndicator conflictId={item.conflict.conflictId} />
+                </div>
+              )}
+            </td>
+            <td className="px-3 py-2">
+              <DepartmentBadge dept={item.department} />
+            </td>
+            <td className="px-3 py-2 max-w-[200px] text-text-primary">
+              <p className="truncate">{item.description}</p>
+              <p className="text-[10px] text-text-secondary">
+                Km {item.location.kmStart} ({item.location.line})
+              </p>
+            </td>
+            <td className="px-3 py-2 whitespace-nowrap text-text-secondary">
+              {new Date(item.scheduledWindow.start).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}{" "}
+              –{" "}
+              {new Date(item.scheduledWindow.end).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </td>
+            <td className="px-3 py-2">
+              <UrgencyText tier={item.urgency.tier} text={breachText} />
+            </td>
+            <td className="px-3 py-2 text-[11px] text-text-secondary">
+              {item.aiSuggestion ? (
+                <span>{item.aiSuggestion.confidence}% confident</span>
+              ) : (
+                <span className="italic">No prediction</span>
+              )}
+            </td>
+            <td className="px-3 py-2" />
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────
 
 export default function ApprovalsPage() {
-  const { data } = useDashboardData();
-  const { blocks, syncedAt } = data;
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(1);
+  const { data, optimizer, optimizerLoading, optimizerError, rerunOptimizer, saveOverrides } =
+    useDashboardData();
+  const { blocks } = data;
+
   const [deptFilter, setDeptFilter] = useState("All");
-  
-  const [optimizerResponse, setOptimizerResponse] = useState<OptimizerResponse | null>(null);
-  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [dissolvedGroups, setDissolvedGroups] = useState<Set<string>>(new Set());
   const [adjustItem, setAdjustItem] = useState<DisplayItem | null>(null);
 
-  const pendingApprovals = blocks.filter(b => b.status === "Under review" || b.status === "Submitted")
-    .sort((a, b) => {
-      const aVal = a.urgency.timeToBreachHours ?? Number.MAX_SAFE_INTEGER;
-      const bVal = b.urgency.timeToBreachHours ?? Number.MAX_SAFE_INTEGER;
-      return aVal - bVal;
-    });
+  const pendingApprovals = useMemo(
+    () =>
+      blocks
+        .filter((b) => b.status === "Under review" || b.status === "Submitted")
+        .sort((a, b) => {
+          const aVal = a.urgency.timeToBreachHours ?? Number.MAX_SAFE_INTEGER;
+          const bVal = b.urgency.timeToBreachHours ?? Number.MAX_SAFE_INTEGER;
+          return aVal - bVal;
+        }),
+    [blocks],
+  );
 
-  const pendingIdsString = pendingApprovals.map(b => b.id).sort().join(",");
+  // Build display list from optimizer result
+  const displayItems: DisplayItem[] = useMemo(() => {
+    if (!optimizer) return pendingApprovals.map((b) => ({ isGrouped: false, item: b }));
 
-  useEffect(() => {
-    if (pendingApprovals.length > 0) {
-      setIsOptimizing(true);
-      optimizeRequests(pendingApprovals.map(b => b.id))
-        .then(res => setOptimizerResponse(res))
-        .catch(err => console.error("Optimizer error:", err))
-        .finally(() => setIsOptimizing(false));
-    } else {
-      setOptimizerResponse(null);
-    }
-  }, [pendingIdsString]); // Re-run when the exact set of pending IDs changes
+    const overrides = optimizer._operator_overrides ?? {};
+    const items: DisplayItem[] = [];
+    const addedIds = new Set<string>();
 
-  // Create unified display list
-  let displayItems: DisplayItem[] = [];
-  
-  if (optimizerResponse) {
-    optimizerResponse.selected_blocks.forEach((optBlock, i) => {
-      if (optBlock.request_ids.length > 1) {
-        const groupItems = optBlock.request_ids.map(id => pendingApprovals.find(b => b.id === id)).filter(Boolean) as BlockRecord[];
-        displayItems.push({
+    optimizer.selected_blocks.forEach((optBlock, i) => {
+      const groupId = `SHADOW-${i}`;
+      const groupItems = optBlock.request_ids
+        .map((id) => pendingApprovals.find((b) => b.id === id))
+        .filter(Boolean) as BlockRecord[];
+
+      groupItems.forEach((b) => addedIds.add(b.id));
+
+      if (optBlock.request_ids.length > 1 && !dissolvedGroups.has(groupId)) {
+        items.push({
           isGrouped: true,
-          id: `SHADOW-${i}`,
+          id: groupId,
           optBlock,
-          items: groupItems
+          items: groupItems,
+          override: overrides[groupId],
         });
       } else {
-        const reqId = optBlock.request_ids[0];
-        const baseReq = pendingApprovals.find(b => b.id === reqId);
-        if (baseReq) displayItems.push({ isGrouped: false, item: baseReq });
+        // Dissolved or single-item group — show as individual rows
+        groupItems.forEach((item) => items.push({ isGrouped: false, item }));
       }
     });
-    
-    optimizerResponse.ungrouped_request_ids.forEach(reqId => {
-       const baseReq = pendingApprovals.find(b => b.id === reqId);
-       if (baseReq) displayItems.push({ isGrouped: false, item: baseReq });
+
+    // Ungrouped requests not in any selected block
+    optimizer.ungrouped_request_ids.forEach((reqId) => {
+      const b = pendingApprovals.find((b) => b.id === reqId);
+      if (b && !addedIds.has(b.id)) items.push({ isGrouped: false, item: b });
     });
-  } else {
-    displayItems = pendingApprovals.map(b => ({ isGrouped: false, item: b }));
-  }
 
-  // Filter
-  const filtered = displayItems.filter(di => {
-    if (deptFilter === "All") return true;
-    if (di.isGrouped) return di.items.some(i => i.department === deptFilter);
-    return di.item.department === deptFilter;
-  });
-  
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    // Skipped requests (no ML features)
+    (optimizer.skipped_request_ids ?? []).forEach((reqId) => {
+      const b = pendingApprovals.find((b) => b.id === reqId);
+      if (b && !addedIds.has(b.id)) items.push({ isGrouped: false, item: b });
+    });
 
-  const toggleSelect = (id: string) => {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedIds(next);
+    return items;
+  }, [optimizer, pendingApprovals, dissolvedGroups]);
+
+  const filtered = useMemo(
+    () =>
+      displayItems.filter((di) => {
+        if (deptFilter === "All") return true;
+        if (di.isGrouped) return di.items.some((i) => i.department === deptFilter);
+        return di.item.department === deptFilter;
+      }),
+    [displayItems, deptFilter],
+  );
+
+  const toggleExpand = (id: string) =>
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const handleDissolve = async (groupId: string) => {
+    setDissolvedGroups((prev) => new Set(prev).add(groupId));
+    await saveOverrides({ [groupId]: { dissolved: true } });
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filtered.map(i => i.isGrouped ? i.id : i.item.id)));
-  };
-
-  const selectedCount = selectedIds.size;
-  
-  // Action Handlers
-  const handleAction = async (id: string, action: string, e: React.MouseEvent) => {
+  const handleApproveAll = async (di: Extract<DisplayItem, { isGrouped: true }>, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      if (action === "Approve Group") {
-        const group = displayItems.find(di => di.id === id);
-        if (group && group.isGrouped) {
-          await Promise.all(group.items.map(item => updateRequestStatus(item.id, "approved")));
-        }
-      } else {
-        await updateRequestStatus(id, "approved");
-      }
-      alert(`Audit Log: Successfully approved ${id}. Timestamp: ${new Date().toISOString()}`);
-      // Refresh the page or let the 15s poll handle it? We can force a refresh by mutating state, but letting dashboard context handle it is fine.
+      await Promise.all(di.items.map((item) => updateRequestStatus(item.id, "approved")));
+    } catch (err) {
+      alert(`Failed to approve group: ${err}`);
+    }
+  };
+
+  const handleApproveSingle = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await updateRequestStatus(id, "approved");
     } catch (err) {
       alert(`Failed to approve ${id}: ${err}`);
     }
   };
+
+  const groupCount = filtered.filter((di) => di.isGrouped).length;
+  const totalSaving = optimizer?.selected_blocks
+    .filter((_, i) => !dissolvedGroups.has(`SHADOW-${i}`))
+    .reduce((acc, b) => acc + b.possession_saving_minutes, 0) ?? 0;
 
   return (
     <>
@@ -134,31 +315,55 @@ export default function ApprovalsPage() {
         title="Pending approvals"
         subtitle="Review and approve proposed block windows"
       />
-      
-      {selectedCount > 0 && (
-        <div className="bg-surface-sunken border-b border-border-default px-5 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] font-medium text-text-primary">
-              {selectedCount} selected 
+
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-canvas">
+        {/* Summary banner */}
+        {optimizer && (
+          <div className="shrink-0 px-5 py-2 bg-surface border-b border-border-default flex items-center gap-6 text-[12px]">
+            <span className="flex items-center gap-1.5 text-text-secondary">
+              <Layers size={13} className="text-brand" />
+              <span>
+                <strong className="text-text-primary">{groupCount}</strong> shadow block
+                {groupCount !== 1 ? "s" : ""}
+              </span>
             </span>
-          </div>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 text-[12.5px] font-medium border border-border-default text-text-primary bg-surface hover:bg-surface-sunken transition-colors">
-              Reject ({selectedCount})
-            </button>
-            <button 
-              className="px-4 py-2 text-[12.5px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors"
+            <span className="text-text-secondary">
+              Combined saving:{" "}
+              <strong className="text-positive">{totalSaving.toFixed(0)} min</strong> possession
+              time
+            </span>
+            {optimizer._cache_id && (
+              <span className="text-text-secondary flex items-center gap-1">
+                <Info size={11} /> Served from cache
+              </span>
+            )}
+            <button
+              onClick={rerunOptimizer}
+              disabled={optimizerLoading}
+              className="ml-auto flex items-center gap-1.5 px-2.5 py-1 text-[11px] border border-border-default text-text-secondary hover:text-text-primary hover:bg-surface-sunken transition-colors disabled:opacity-50"
             >
-              Batch approve ({selectedCount})
+              <RefreshCw size={11} className={optimizerLoading ? "animate-spin" : ""} />
+              Re-optimize
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="flex-1 min-h-0 p-5 space-y-4 overflow-y-auto bg-canvas">
-        <AcronymLegend />
+        {/* Optimizer loading / error states */}
+        {optimizerLoading && !optimizer && (
+          <div className="shrink-0 px-5 py-2 bg-brand/5 border-b border-brand/20 flex items-center gap-2 text-[12px] text-brand">
+            <Layers size={13} className="animate-pulse" />
+            ML Optimizer grouping blocks… (checking cache first)
+          </div>
+        )}
+        {optimizerError && (
+          <div className="shrink-0 px-5 py-1.5 bg-critical/5 border-b border-critical/20 flex items-center gap-2 text-[12px] text-critical">
+            <AlertTriangle size={13} /> Optimizer error: {optimizerError}
+          </div>
+        )}
 
-        <div className="flex items-center justify-between">
+        <div className="flex-1 min-h-0 p-5 overflow-y-auto space-y-4">
+          <AcronymLegend />
+
           <div className="flex items-center gap-2 text-[13px]">
             <Filter size={14} className="text-text-secondary" />
             <select
@@ -169,112 +374,120 @@ export default function ApprovalsPage() {
               <option value="All">All Departments</option>
               <option value="Engg">Engineering</option>
               <option value="TRD">TRD</option>
-              <option value="S&T">S&T</option>
+              <option value="S&T">S&amp;T</option>
             </select>
           </div>
-          {isOptimizing && (
-            <span className="text-[12px] text-brand font-medium flex items-center gap-2 animate-pulse">
-              <Layers size={14} /> ML Optimizer grouping blocks...
-            </span>
-          )}
-        </div>
 
-        <div className="bg-surface border border-border-default overflow-hidden">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="bg-surface-sunken text-text-secondary text-left uppercase tracking-wider text-[10px]">
-                <th scope="col" className="px-4 py-2.5 w-10">
-                  <input
-                    type="checkbox"
-                    checked={selectedCount === filtered.length && filtered.length > 0}
-                    onChange={toggleSelectAll}
-                    className="rounded-sm border-border-default text-brand focus:ring-brand"
-                  />
-                </th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">ID</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Dept</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Description</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Schedule</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Urgency</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold">Confidence</th>
-                <th scope="col" className="px-4 py-2.5 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-default">
-              {paged.map((di, idx) => {
-                if (di.isGrouped) {
-                  const isSelected = selectedIds.has(di.id);
-                  // Render Grouped Row
-                  const startD = new Date();
-                  startD.setHours(0, di.optBlock.scheduled_start_minute || 0, 0, 0);
-                  const endD = new Date();
-                  endD.setHours(0, di.optBlock.scheduled_end_minute || 0, 0, 0);
-                  
+          <div className="bg-surface border border-border-default overflow-hidden">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="bg-surface-sunken text-text-secondary text-left uppercase tracking-wider text-[10px]">
+                  <th scope="col" className="px-3 py-2.5 w-10" />
+                  <th scope="col" className="px-3 py-2.5 font-semibold">ID</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">Dept</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">Description</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">Schedule</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">Urgency</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">Confidence</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-default">
+                {filtered.map((di) => {
+                  if (di.isGrouped) {
+                    const isExpanded = expandedGroups.has(di.id);
+
+                    return isExpanded ? (
+                      <ShadowGroupRows
+                        key={di.id}
+                        di={di}
+                        onAdjust={() => setAdjustItem(di)}
+                        onDissolve={() => handleDissolve(di.id)}
+                        onApproveAll={(e) => handleApproveAll(di, e)}
+                        onCollapse={() => toggleExpand(di.id)}
+                      />
+                    ) : (
+                      // ── Collapsed shadow block row ─────────────────
+                      <tr
+                        key={di.id}
+                        className="cursor-pointer border-l-[3px] border-brand bg-brand/5 hover:bg-brand/10 transition-colors"
+                        onClick={() => toggleExpand(di.id)}
+                      >
+                        <td className="px-3 py-3">
+                          <ChevronRight size={14} className="text-brand" />
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <Layers size={13} className="text-brand shrink-0" />
+                            <span className="font-mono text-[12px] font-semibold text-brand">{di.id}</span>
+                            <span className="text-[10px] bg-brand/10 text-brand px-1.5 py-0.5 rounded-sm font-semibold uppercase">
+                              {di.items.length} grouped
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-text-secondary mt-0.5 pl-5">
+                            Click to expand · {di.items.map((i) => i.id).join(", ")}
+                          </p>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {Array.from(new Set(di.items.map((i) => i.department))).map((d) => (
+                              <DepartmentBadge key={d} dept={d} />
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-[12px] text-text-secondary">
+                          Shadow Block: {di.items.length} requests combined
+                        </td>
+                        <td className="px-3 py-3 text-[12px] font-medium text-text-primary whitespace-nowrap">
+                          {formatMinutes(di.optBlock.scheduled_start_minute ?? 0)} –{" "}
+                          {formatMinutes(di.optBlock.scheduled_end_minute ?? 0)}
+                        </td>
+                        <td className="px-3 py-3">
+                          <UrgencyText tier="warning" text="Optimized" />
+                        </td>
+                        <td className="px-3 py-3 text-[11px] text-positive font-medium">
+                          Saves {di.optBlock.possession_saving_minutes.toFixed(0)} min
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setAdjustItem(di); }}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] border border-brand text-brand hover:bg-brand/10 bg-transparent transition-colors"
+                            >
+                              <Settings2 size={11} /> Adjust
+                            </button>
+                            <button
+                              onClick={(e) => handleApproveAll(di, e)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] bg-brand text-white hover:bg-brand-hover transition-colors"
+                            >
+                              <CheckSquare size={11} /> Approve all
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  // ── Single (ungrouped) request row ─────────────────
+                  const item = di.item;
+                  const eligible = isBatchEligible(item);
+                  const breachText =
+                    item.urgency.timeToBreachHours === null
+                      ? "Routine"
+                      : `${Math.ceil(item.urgency.timeToBreachHours / 24)} days`;
+
                   return (
-                    <tr key={di.id} className={`transition-colors relative group border-l-2 border-brand bg-brand/5`}>
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox" checked={isSelected} onChange={() => toggleSelect(di.id)}
-                          className="rounded-sm border-border-default text-brand focus:ring-brand"
+                    <tr
+                      key={item.id}
+                      className="hover:bg-surface-sunken/50 transition-colors relative group"
+                    >
+                      <td className="px-3 py-3 relative">
+                        <UrgencyBorder
+                          tier={item.urgency.tier}
+                          className="absolute left-0 w-full h-full pointer-events-none opacity-80"
                         />
                       </td>
-                      <td className="px-4 py-3 font-medium text-[12px] flex items-center gap-1.5">
-                        <Layers size={14} className="text-brand" /> {di.id}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                           {Array.from(new Set(di.items.map(i => i.department))).map(d => (
-                             <DepartmentBadge key={d} dept={d} />
-                           ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 max-w-[200px] text-text-primary">
-                        <div className="font-semibold text-brand text-[12px] mb-0.5">Shadow Block: {di.items.length} requests grouped</div>
-                        <div className="text-[11px] text-text-secondary truncate">
-                          {di.items.map(i => i.id).join(", ")}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-[12px] whitespace-nowrap text-text-primary font-medium">
-                        {startD.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} – {endD.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                      </td>
-                      <td className="px-4 py-3">
-                        <UrgencyText tier="warning" text="Optimized" />
-                      </td>
-                      <td className="px-4 py-3 text-[11px] text-text-secondary">
-                        Saves {di.optBlock.possession_saving_minutes.toFixed(0)} min of possession time
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1 flex-nowrap">
-                          <button onClick={(e) => { e.stopPropagation(); setAdjustItem(di); }} className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-brand text-brand hover:bg-brand/10 transition-colors bg-surface whitespace-nowrap text-[11.5px] font-medium">
-                            <Settings2 size={13} strokeWidth={2} /> Adjust
-                          </button>
-                          <button onClick={(e) => handleAction(di.id, "Approve Group", e)} className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-brand text-white hover:bg-brand-hover transition-colors whitespace-nowrap text-[11.5px] font-medium">
-                            <CheckSquare size={13} strokeWidth={2} /> Approve
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                } else {
-                  // Render Single Row
-                  const item = di.item;
-                  const isSelected = selectedIds.has(item.id);
-                  const eligible = isBatchEligible(item);
-                  const breachText = item.urgency.timeToBreachHours === null ? "Routine" : `${Math.ceil(item.urgency.timeToBreachHours / 24)} days`;
-
-                  return (
-                    <tr key={item.id} className={`transition-colors relative group ${isSelected ? "bg-surface-sunken" : "hover:bg-surface-sunken/50"}`}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center h-full relative">
-                          <UrgencyBorder tier={item.urgency.tier} className="absolute left-0 w-full h-full -ml-4 pl-4 pointer-events-none opacity-80" />
-                          <input
-                            type="checkbox" checked={isSelected} disabled={!eligible}
-                            onChange={() => toggleSelect(item.id)}
-                            className={`rounded-sm border-border-default text-brand focus:ring-brand z-10 relative ${!eligible ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 num font-medium text-[12px]">
+                      <td className="px-3 py-3 num font-medium text-[12px]">
                         {item.id}
                         {!eligible && (
                           <div className="mt-1">
@@ -282,54 +495,83 @@ export default function ApprovalsPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3"><DepartmentBadge dept={item.department} /></td>
-                      <td className="px-4 py-3 max-w-[200px] truncate text-text-primary">
-                        {item.description}
-                        <div className="text-[11px] text-text-secondary mt-0.5">Km {item.location.kmStart} ({item.location.line})</div>
+                      <td className="px-3 py-3"><DepartmentBadge dept={item.department} /></td>
+                      <td className="px-3 py-3 max-w-[200px] text-text-primary">
+                        <p className="truncate">{item.description}</p>
+                        <p className="text-[11px] text-text-secondary mt-0.5">
+                          Km {item.location.kmStart} ({item.location.line})
+                        </p>
                       </td>
-                      <td className="px-4 py-3 text-[12px] whitespace-nowrap text-text-primary font-medium">
-                        {new Date(item.scheduledWindow.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} – {new Date(item.scheduledWindow.end).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                      <td className="px-3 py-3 text-[12px] whitespace-nowrap text-text-primary font-medium">
+                        {new Date(item.scheduledWindow.start).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}{" "}
+                        –{" "}
+                        {new Date(item.scheduledWindow.end).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         <UrgencyText tier={item.urgency.tier} text={breachText} />
                       </td>
-                      <td className="px-4 py-3 max-w-[250px]">
+                      <td className="px-3 py-3 max-w-[250px]">
                         {item.aiSuggestion ? (
                           <ConfidenceDisplay aiSuggestion={item.aiSuggestion} />
                         ) : (
-                          <span className="text-[11px] text-text-secondary italic">Standalone (not grouped)</span>
+                          <span className="text-[11px] text-text-secondary italic">
+                            Standalone — no ML prediction
+                          </span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1 flex-nowrap">
-                          <button onClick={(e) => { e.stopPropagation(); setAdjustItem(di); }} className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 border border-border-default text-text-primary hover:bg-surface-sunken transition-colors bg-surface whitespace-nowrap text-[11.5px] font-medium">
-                            <Settings2 size={13} strokeWidth={2} /> Adjust
+                      <td className="px-3 py-3">
+                        <div className="flex items-center justify-end gap-1.5 flex-nowrap">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setAdjustItem(di); }}
+                            className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] border border-border-default text-text-primary hover:bg-surface-sunken bg-surface transition-colors"
+                          >
+                            <Settings2 size={11} /> Adjust
                           </button>
-                          <button onClick={(e) => handleAction(item.id, "Approve", e)} className="touch-target inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-brand text-white hover:bg-brand-hover transition-colors whitespace-nowrap text-[11.5px] font-medium">
-                            <CheckSquare size={13} strokeWidth={2} /> Approve
+                          <button
+                            onClick={(e) => handleApproveSingle(item.id, e)}
+                            disabled={!eligible}
+                            title={!eligible ? "Resolve conflict first" : "Approve"}
+                            className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <CheckSquare size={11} /> Approve
                           </button>
                         </div>
                       </td>
                     </tr>
                   );
-                }
-              })}
-            </tbody>
-          </table>
-          <Pagination
-            currentPage={page}
-            totalItems={filtered.length}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
-          />
+                })}
+
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-10 text-center text-[13px] text-text-secondary">
+                      No pending approvals{deptFilter !== "All" ? ` for ${deptFilter}` : ""}.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            <div className="px-4 py-2 text-[11px] text-text-secondary border-t border-border-default">
+              {filtered.length} item{filtered.length !== 1 ? "s" : ""} pending
+            </div>
+          </div>
         </div>
       </div>
-      
+
       {/* Adjust Modal */}
       {adjustItem && (
-        <AdjustModal 
-          displayItem={adjustItem} 
-          onClose={() => setAdjustItem(null)} 
+        <AdjustModal
+          displayItem={adjustItem}
+          onClose={() => setAdjustItem(null)}
+          onSave={async (groupId, override) => {
+            await saveOverrides({ [groupId]: override });
+            setAdjustItem(null);
+          }}
         />
       )}
     </>

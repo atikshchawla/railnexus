@@ -31,15 +31,8 @@ class OptimizedBlockRepository:
         return None
 
     def save(self, db: Session, request_ids: list[str], result: dict) -> OptimizedBlock:
-        """Persist a fresh optimizer result, replacing any previous entry for this ID set."""
+        """Persist a fresh optimizer result (append-only, preserving historical runs)."""
         h = self._make_hash(request_ids)
-        # Remove stale entries for this exact request set
-        existing = db.scalars(
-            select(OptimizedBlock).where(OptimizedBlock.request_ids_hash == h)
-        ).all()
-        for old in existing:
-            db.delete(old)
-
         row = OptimizedBlock(
             request_ids_hash=h,
             request_ids=request_ids,

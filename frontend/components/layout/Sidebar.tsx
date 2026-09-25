@@ -25,7 +25,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-[220px] shrink-0 h-screen sticky top-0 flex flex-col bg-surface border-r border-border-default">
+    <aside className="w-[220px] shrink-0 h-full flex flex-col bg-surface border-r border-border-default overflow-y-auto">
       {/* Brand header */}
       <div className="px-4 py-3 border-b border-border-default bg-brand">
         <p className="text-[11px] text-white/70 leading-tight">

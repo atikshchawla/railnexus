@@ -137,7 +137,7 @@ export default function OverviewPage() {
         </div>
       )}
 
-      <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-canvas">
+      <div className="flex-1 min-h-0 p-4 space-y-4 overflow-y-auto bg-canvas">
         {/* Row 1: Clickable KPI tiles */}
         <div className="grid grid-cols-4 gap-px bg-border-default border border-border-default">
           <Link href="/backlog" className="bg-surface p-3 hover:bg-surface-sunken/50 transition-colors">
@@ -167,10 +167,10 @@ export default function OverviewPage() {
         </div>
 
         {/* Row 2: Two-column */}
-        <div className="grid grid-cols-[minmax(320px,1fr)_minmax(480px,1.5fr)] gap-4">
+        <div className="grid grid-cols-[minmax(280px,1fr)_minmax(400px,1.6fr)] gap-4 items-start">
           
           {/* Left column: Conflicts */}
-          <div className="bg-surface border border-border-default h-min">
+          <div className="bg-surface border border-border-default">
             <div className="px-3 py-2 border-b border-border-default flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={13} strokeWidth={1.75} className="text-critical" />
@@ -212,7 +212,7 @@ export default function OverviewPage() {
           </div>
 
           {/* Right column: AI suggestions as reasoning-first cards */}
-          <div className="bg-surface border border-border-default h-min">
+          <div className="bg-surface border border-border-default flex flex-col">
             <div className="px-3 py-2 border-b border-border-default flex items-center justify-between">
               <h3 className="text-[14px] font-semibold text-text-primary">
                 AI suggestions
@@ -221,7 +221,7 @@ export default function OverviewPage() {
                 System-generated — review required
               </span>
             </div>
-            <div className="divide-y divide-border-default bg-surface-sunken/30">
+            <div className="divide-y divide-border-default bg-surface-sunken/30 max-h-[520px] overflow-y-auto">
               {blocksWithAI.map(block => {
                 const hasExpanded = expandedReasoning.has(block.id);
                 // Check if it's eligible for batch (no unresolved conflicts)

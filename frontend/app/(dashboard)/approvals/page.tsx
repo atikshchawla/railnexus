@@ -155,7 +155,7 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      <div className="flex-1 p-5 space-y-4 overflow-y-auto bg-canvas">
+      <div className="flex-1 min-h-0 p-5 space-y-4 overflow-y-auto bg-canvas">
         <AcronymLegend />
 
         <div className="flex items-center justify-between">

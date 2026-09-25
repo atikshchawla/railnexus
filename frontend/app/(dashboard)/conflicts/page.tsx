@@ -185,7 +185,7 @@ export default function ConflictsPage() {
         />
       )}
 
-      <div className="flex-1 p-5 overflow-y-auto bg-canvas space-y-6">
+      <div className="flex-1 min-h-0 p-5 overflow-y-auto bg-canvas space-y-6">
         
         {/* Filters */}
         <div className="flex items-center gap-3">

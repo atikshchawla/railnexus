@@ -114,7 +114,7 @@ export default function AnalyticsPage() {
         title="Analytics & Coordination"
         subtitle="Cross-department performance and block utilization trends"
       />
-      <div className="flex-1 p-5 space-y-6 overflow-y-auto bg-canvas">
+      <div className="flex-1 min-h-0 p-5 space-y-6 overflow-y-auto bg-canvas">
         
         {/* Methodology (R6) */}
         <div className="bg-surface-sunken border border-border-default px-4 py-3 flex items-start gap-3">

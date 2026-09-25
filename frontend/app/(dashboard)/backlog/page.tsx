@@ -74,7 +74,7 @@ export default function BacklogPage() {
         title="Maintenance backlog"
         subtitle="Auto-populated from TMS, SMMS, TDMS — manual entry is secondary"
       />
-      <div className="flex-1 p-5 space-y-4 overflow-y-auto bg-canvas">
+      <div className="flex-1 min-h-0 p-5 space-y-4 overflow-y-auto bg-canvas">
         
         <AcronymLegend />
 

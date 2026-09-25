@@ -13,10 +13,14 @@ class OptimizationRepository:
 
     def create_run(self, db: Session, run: OptimizationRun) -> OptimizationRun:
         """Persist a new optimization run and its candidate block proposals (append-only)."""
-        db.add(run)
-        db.commit()
-        db.refresh(run)
-        return run
+        try:
+            db.add(run)
+            db.commit()
+            db.refresh(run)
+            return run
+        except Exception:
+            db.rollback()
+            raise
 
     def get_run(self, db: Session, run_id: str) -> OptimizationRun | None:
         statement = (
@@ -38,6 +42,18 @@ class OptimizationRepository:
         statement = statement.options(
             selectinload(OptimizationRun.proposals).selectinload(BlockProposal.items),
             selectinload(OptimizationRun.proposals).selectinload(BlockProposal.departments),
+        )
+        return db.scalar(statement)
+
+    def get_latest_run_by_hash(self, db: Session, input_hash: str) -> OptimizationRun | None:
+        statement = (
+            select(OptimizationRun)
+            .where(OptimizationRun.input_requests_hash == input_hash)
+            .order_by(OptimizationRun.created_at.desc())
+            .options(
+                selectinload(OptimizationRun.proposals).selectinload(BlockProposal.items),
+                selectinload(OptimizationRun.proposals).selectinload(BlockProposal.departments),
+            )
         )
         return db.scalar(statement)
 

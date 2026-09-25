@@ -146,7 +146,7 @@ function ShadowGroupRows({
             key={item.id}
             className={`bg-brand/[0.02] border-l-[3px] border-brand/30 text-[12px] ${isLast ? "border-b border-b-border-default" : ""}`}
           >
-            <td className="pl-8 pr-3 py-2">
+            <td className="py-2 text-center">
               <span className="text-[10px] text-text-secondary font-mono">#{idx + 1}</span>
             </td>
             <td className="px-3 py-2">
@@ -160,7 +160,7 @@ function ShadowGroupRows({
             <td className="px-3 py-2">
               <DepartmentBadge dept={item.department} />
             </td>
-            <td className="px-3 py-2 max-w-[200px] text-text-primary">
+            <td className="px-3 py-2 overflow-hidden text-text-primary">
               <p className="truncate">{item.description}</p>
               <p className="text-[10px] text-text-secondary">
                 Km {item.location.kmStart} ({item.location.line})
@@ -378,11 +378,21 @@ export default function ApprovalsPage() {
             </select>
           </div>
 
-          <div className="bg-surface border border-border-default overflow-hidden">
-            <table className="w-full text-[13px]">
+          <div className="bg-surface border border-border-default overflow-x-auto">
+            <table className="w-full text-[13px] table-fixed min-w-[1100px]">
+              <colgroup>
+                <col className="w-8" />         {/* expand icon */}
+                <col className="w-[160px]" />   {/* ID */}
+                <col className="w-[100px]" />   {/* Dept */}
+                <col />                         {/* Description — fills remaining */}
+                <col className="w-[160px]" />   {/* Schedule */}
+                <col className="w-[100px]" />   {/* Urgency */}
+                <col className="w-[170px]" />   {/* Confidence */}
+                <col className="w-[240px]" />   {/* Actions */}
+              </colgroup>
               <thead>
                 <tr className="bg-surface-sunken text-text-secondary text-left uppercase tracking-wider text-[10px]">
-                  <th scope="col" className="px-3 py-2.5 w-10" />
+                  <th scope="col" className="px-3 py-2.5" />
                   <th scope="col" className="px-3 py-2.5 font-semibold">ID</th>
                   <th scope="col" className="px-3 py-2.5 font-semibold">Dept</th>
                   <th scope="col" className="px-3 py-2.5 font-semibold">Description</th>
@@ -418,15 +428,11 @@ export default function ApprovalsPage() {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
-                            <Layers size={13} className="text-brand shrink-0" />
                             <span className="font-mono text-[12px] font-semibold text-brand">{di.id}</span>
                             <span className="text-[10px] bg-brand/10 text-brand px-1.5 py-0.5 rounded-sm font-semibold uppercase">
-                              {di.items.length} grouped
+                              Shadow Block
                             </span>
                           </div>
-                          <p className="text-[11px] text-text-secondary mt-0.5 pl-5">
-                            Click to expand · {di.items.map((i) => i.id).join(", ")}
-                          </p>
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex flex-wrap gap-1">
@@ -435,8 +441,14 @@ export default function ApprovalsPage() {
                             ))}
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-[12px] text-text-secondary">
-                          Shadow Block: {di.items.length} requests combined
+                        <td className="px-3 py-3 overflow-hidden text-[11px] text-text-secondary">
+                          <p className="truncate">
+                            <span className="font-medium text-text-primary">{di.items.length} requests combined:</span>{" "}
+                            {di.items.map((i) => i.description).join(" • ")}
+                          </p>
+                          <p className="truncate mt-0.5 text-brand font-medium">
+                            Click to expand and view individual items
+                          </p>
                         </td>
                         <td className="px-3 py-3 text-[12px] font-medium text-text-primary whitespace-nowrap">
                           {formatMinutes(di.optBlock.scheduled_start_minute ?? 0)} –{" "}

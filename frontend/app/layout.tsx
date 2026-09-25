@@ -24,9 +24,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       suppressHydrationWarning
       data-font-scale="normal"
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrainsMono.variable} h-full overflow-hidden antialiased`}
     >
-      <body className="min-h-full flex">{children}</body>
+      <body className="h-full flex overflow-hidden">{children}</body>
     </html>
   );
 }

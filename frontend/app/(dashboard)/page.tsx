@@ -169,10 +169,10 @@ export default function OverviewPage() {
         </div>
 
         {/* Row 2: Two-column — fills all remaining height */}
-        <div className="flex-1 min-h-0 px-4 pt-4 grid grid-cols-[minmax(280px,1fr)_minmax(400px,1.6fr)] gap-4">
+        <div className="flex-1 min-h-0 px-4 pt-4 flex gap-4 overflow-hidden">
           
-          {/* Left column: Conflicts — fixed height */}
-          <div className="bg-surface border border-border-default flex flex-col h-[180px]">
+          {/* Left column: Conflicts — fills column height, scrolls inside */}
+          <div className="w-[320px] shrink-0 bg-surface border border-border-default flex flex-col min-h-0 overflow-hidden">
             <div className="px-3 py-2 border-b border-border-default flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={13} strokeWidth={1.75} className="text-critical" />
@@ -213,8 +213,8 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Right column: AI suggestions — fills column height */}
-          <div className="bg-surface border border-border-default flex flex-col h-full">
+          {/* Right column: AI suggestions — fills remaining width, scrolls inside */}
+          <div className="flex-1 min-w-0 bg-surface border border-border-default flex flex-col min-h-0 overflow-hidden">
             <div className="px-3 py-2 border-b border-border-default flex items-center justify-between">
               <h3 className="text-[14px] font-semibold text-text-primary">
                 AI suggestions
@@ -223,7 +223,7 @@ export default function OverviewPage() {
                 System-generated — review required
               </span>
             </div>
-            <div className="divide-y divide-border-default bg-surface-sunken/30 flex-1 overflow-y-auto">
+            <div className="divide-y divide-border-default bg-surface-sunken/30 flex-1 min-h-0 overflow-y-auto">
               {blocksWithAI.map(block => {
                 const hasExpanded = expandedReasoning.has(block.id);
                 // Check if it's eligible for batch (no unresolved conflicts)

@@ -75,7 +75,7 @@ export function AdjustModal({
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-border-default flex items-center justify-between bg-surface-sunken shrink-0">
           <div className="flex items-center gap-2">
-            <span className="p-1 rounded bg-amber-500/15 text-amber-600">
+            <span className="p-1.5 rounded bg-amber-100 border border-amber-300 text-amber-900">
               <SlidersHorizontal size={16} />
             </span>
             <div>
@@ -99,9 +99,15 @@ export function AdjustModal({
         {/* Adjust Form */}
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-5 space-y-3.5 overflow-y-auto text-[12px] flex-1">
-            <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded text-amber-700 dark:text-amber-300 text-[11.5px]">
-              <strong>Audited Human Override:</strong> Altering AI parameters stages a formal{" "}
-              <code className="bg-black/10 px-1 py-0.5 rounded font-mono">ManualOverride</code> record in the database. The resulting OperationalBlock will be permanently marked as Controller-Adjusted.
+            <div className="p-3 bg-amber-50 border border-amber-300 rounded text-amber-950 text-[11.5px] leading-relaxed">
+              <strong className="text-amber-950 font-bold">Audited Human Override:</strong>{" "}
+              <span className="text-amber-900">Altering AI parameters stages a formal</span>{" "}
+              <code className="bg-amber-100/90 text-amber-950 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-semibold">
+                ManualOverride
+              </code>{" "}
+              <span className="text-amber-900">
+                record in the database. The resulting OperationalBlock will be permanently marked as Controller-Adjusted.
+              </span>
             </div>
 
             {/* Timing Adjustments */}
@@ -224,7 +230,7 @@ export function AdjustModal({
             <button
               type="submit"
               disabled={loading || !adjustJustification.trim()}
-              className="px-4 py-1.5 text-[11.5px] font-bold bg-amber-600 text-white hover:bg-amber-700 transition-colors rounded disabled:opacity-50 cursor-pointer"
+              className="px-4 py-1.5 text-[11.5px] font-bold bg-amber-700 text-white hover:bg-amber-800 transition-colors rounded disabled:opacity-50 cursor-pointer shadow-xs"
             >
               {loading ? "Staging..." : "Authorize Adjusted Block"}
             </button>

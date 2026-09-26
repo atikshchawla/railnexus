@@ -43,7 +43,7 @@ export function ProposalRow({
     statusBadgeClasses = "text-critical";
     statusIcon = <AlertTriangle size={14} className="shrink-0" />;
   } else if (riskMetrics.category === "review") {
-    statusBadgeClasses = "text-amber-600";
+    statusBadgeClasses = "text-amber-800";
     statusIcon = <AlertTriangle size={14} className="shrink-0" />;
   }
 

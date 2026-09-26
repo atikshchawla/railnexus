@@ -343,6 +343,7 @@ export default function BacklogPage() {
                     <th className="px-4 py-2.5 font-bold border-b border-border-default">Location</th>
                     <th className="px-4 py-2.5 font-bold border-b border-border-default">Owner</th>
                     <th className="px-4 py-2.5 font-bold border-b border-border-default">Deadline</th>
+                    <th className="px-4 py-2.5 font-bold border-b border-border-default">Conflict</th>
                     <th className="px-4 py-2.5 font-bold border-b border-border-default">Status</th>
                     <th className="px-4 py-2.5 font-bold border-b border-border-default">Source</th>
                     <th className="px-4 py-2.5 font-bold border-b border-border-default text-right">Action</th>
@@ -419,6 +420,18 @@ export default function BacklogPage() {
                         <td className="px-4 py-3">
                           {deadlineNode}
                         </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {item.conflict ? (
+                            <div className="flex flex-col gap-0.5">
+                              <ConflictIndicator conflictId={item.conflict.conflictId} />
+                              <span className="text-[10px] text-text-secondary capitalize font-medium">
+                                {item.conflict.severity} &middot; {item.conflict.status}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-text-secondary font-medium">None</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <StatusPill status={item.status} />
                         </td>
@@ -452,7 +465,7 @@ export default function BacklogPage() {
                   })}
                   {sortedAndFiltered.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-5 py-16 text-center">
+                      <td colSpan={9} className="px-5 py-16 text-center">
                         <div className="flex flex-col items-center gap-2">
                            <span className="text-[14px] font-bold text-text-primary">NO MATCHING REQUESTS</span>
                            <span className="text-[12px] text-text-secondary">{loading ? "Loading maintenance backlog..." : "Try changing the department, category, status or search."}</span>

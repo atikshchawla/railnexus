@@ -434,27 +434,63 @@ export default function ApprovalsPage() {
         )}
 
         {/* Top Status Summary */}
-        <div className="shrink-0 px-6 py-4 bg-surface border-b border-border-default flex items-center justify-between">
-          <div className="flex gap-6">
-            <button onClick={() => setActiveTab("pending")} className={`flex flex-col text-left transition-colors ${activeTab === "pending" ? "text-brand" : "text-text-secondary hover:text-text-primary"}`}>
-              <span className="text-[10px] font-bold uppercase tracking-wider mb-0.5">Awaiting Decision</span>
-              <span className="text-[24px] font-black leading-none">{pendingProposals.length}</span>
+        <div className="shrink-0 px-6 py-3.5 bg-surface border-b border-border-default flex items-center justify-between">
+          <div className="flex gap-8 items-center">
+            <button
+              onClick={() => setActiveTab("pending")}
+              className="flex flex-col text-left group cursor-pointer outline-none"
+            >
+              <span className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 transition-colors ${
+                activeTab === "pending" ? "text-brand" : "text-text-secondary group-hover:text-text-primary"
+              }`}>
+                Awaiting Decision
+              </span>
+              <span className={`text-[18px] font-medium leading-none num transition-colors ${
+                activeTab === "pending" ? "text-brand font-bold" : "text-text-primary"
+              }`}>
+                {pendingProposals.length}
+              </span>
             </button>
-            <div className="w-px h-10 bg-border-default mx-2" />
-            <button onClick={() => setActiveTab("approved")} className={`flex flex-col text-left transition-colors ${activeTab === "approved" ? "text-positive" : "text-text-secondary hover:text-text-primary"}`}>
-              <span className="text-[10px] font-bold uppercase tracking-wider mb-0.5">Operational Possessions</span>
-              <span className="text-[24px] font-black leading-none">{operationalBlocks.length}</span>
+            <div className="w-px h-8 bg-border-default" />
+            <button
+              onClick={() => setActiveTab("approved")}
+              className="flex flex-col text-left group cursor-pointer outline-none"
+            >
+              <span className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 transition-colors ${
+                activeTab === "approved" ? "text-brand" : "text-text-secondary group-hover:text-text-primary"
+              }`}>
+                Operational Possessions
+              </span>
+              <span className={`text-[18px] font-medium leading-none num transition-colors ${
+                activeTab === "approved" ? "text-brand font-bold" : "text-text-primary"
+              }`}>
+                {operationalBlocks.length}
+              </span>
             </button>
-            <div className="w-px h-10 bg-border-default mx-2" />
-            <button onClick={() => setActiveTab("rejected")} className={`flex flex-col text-left transition-colors ${activeTab === "rejected" ? "text-critical" : "text-text-secondary hover:text-text-primary"}`}>
-              <span className="text-[10px] font-bold uppercase tracking-wider mb-0.5">Rejected</span>
-              <span className="text-[24px] font-black leading-none">{rejectedProposals.length}</span>
+            <div className="w-px h-8 bg-border-default" />
+            <button
+              onClick={() => setActiveTab("rejected")}
+              className="flex flex-col text-left group cursor-pointer outline-none"
+            >
+              <span className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 transition-colors ${
+                activeTab === "rejected" ? "text-critical" : "text-text-secondary group-hover:text-text-primary"
+              }`}>
+                Rejected
+              </span>
+              <span className={`text-[18px] font-medium leading-none num transition-colors ${
+                activeTab === "rejected" ? "text-critical font-bold" : "text-text-primary"
+              }`}>
+                {rejectedProposals.length}
+              </span>
             </button>
           </div>
           <div className="flex flex-col text-right">
-            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-0.5">Combined Possession Saving</span>
-            <span className="text-[24px] font-black text-text-primary leading-none">
-              {pendingProposals.reduce((sum, p) => sum + (p.possession_saving_minutes || 0), 0).toFixed(0)} <span className="text-[14px] font-semibold text-text-secondary">min</span>
+            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-0.5">
+              Combined Possession Saving
+            </span>
+            <span className="text-[18px] font-medium text-text-primary leading-none num">
+              {pendingProposals.reduce((sum, p) => sum + (p.possession_saving_minutes || 0), 0).toFixed(0)}{" "}
+              <span className="text-[12px] font-semibold text-text-secondary">min</span>
             </span>
           </div>
         </div>
@@ -477,7 +513,7 @@ export default function ApprovalsPage() {
                 {/* All */}
                 <button onClick={() => setRiskFilter("all")} className={`px-3 py-1.5 rounded text-[11.5px] font-bold transition-all cursor-pointer ${riskFilter === "all" ? "bg-surface-sunken text-text-primary shadow-xs border border-border-default" : "text-text-secondary hover:text-text-primary"}`}>All {riskCounts.total}</button>
                 {/* Needs Attention */}
-                <button onClick={() => setRiskFilter("attention")} className={`px-3 py-1.5 rounded text-[11.5px] font-bold transition-all cursor-pointer ${riskFilter === "attention" ? "bg-amber-500/10 text-amber-600 shadow-xs border border-amber-500/30" : "text-text-secondary hover:text-text-primary"}`}>Needs Attention {riskCounts.attentionCount}</button>
+                <button onClick={() => setRiskFilter("attention")} className={`px-3 py-1.5 rounded text-[11.5px] font-bold transition-all cursor-pointer ${riskFilter === "attention" ? "bg-amber-100 text-amber-900 shadow-xs border border-amber-300" : "text-text-secondary hover:text-text-primary"}`}>Needs Attention {riskCounts.attentionCount}</button>
                 {/* Clear */}
                 <button onClick={() => setRiskFilter("clear")} className={`px-3 py-1.5 rounded text-[11.5px] font-bold transition-all cursor-pointer ${riskFilter === "clear" ? "bg-positive/10 text-positive shadow-xs border border-positive/30" : "text-text-secondary hover:text-text-primary"}`}>Clear {riskCounts.clearCount}</button>
                 {/* Blocked */}
@@ -613,7 +649,7 @@ export default function ApprovalsPage() {
                         </td>
                         <td className="px-4 py-3">
                           {isAdjusted ? (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-amber-500/15 text-amber-600 border border-amber-500/30">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                               <SlidersHorizontal size={10} /> HUMAN ADJUSTED
                             </span>
                           ) : (
@@ -776,14 +812,14 @@ export default function ApprovalsPage() {
                   <div className="space-y-3">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">AI / Operational Assessment</div>
                     
-                    <div className={`p-3 rounded border ${riskMetrics.isBlocked ? 'bg-critical/10 border-critical/30' : riskMetrics.needsAttention ? 'bg-amber-500/10 border-amber-500/30' : 'bg-positive/10 border-positive/30'}`}>
+                    <div className={`p-3 rounded border ${riskMetrics.isBlocked ? 'bg-critical/10 border-critical/30' : riskMetrics.needsAttention ? 'bg-amber-50 border-amber-300' : 'bg-positive/10 border-positive/30'}`}>
                       <div className="flex items-center gap-2 font-bold mb-1">
-                        {riskMetrics.isBlocked ? <AlertTriangle size={14} className="text-critical"/> : riskMetrics.needsAttention ? <AlertTriangle size={14} className="text-amber-600"/> : <ShieldCheck size={14} className="text-positive"/>}
-                        <span className={riskMetrics.isBlocked ? "text-critical" : riskMetrics.needsAttention ? "text-amber-600" : "text-positive"}>
+                        {riskMetrics.isBlocked ? <AlertTriangle size={14} className="text-critical"/> : riskMetrics.needsAttention ? <AlertTriangle size={14} className="text-amber-800"/> : <ShieldCheck size={14} className="text-positive"/>}
+                        <span className={riskMetrics.isBlocked ? "text-critical" : riskMetrics.needsAttention ? "text-amber-800" : "text-positive"}>
                           {riskMetrics.statusLabel} · {riskMetrics.confidence}% Confidence
                         </span>
                       </div>
-                      <p className={`text-[11px] ${riskMetrics.isBlocked ? "text-critical" : riskMetrics.needsAttention ? "text-amber-600" : "text-positive"}`}>{riskMetrics.reason}</p>
+                      <p className={`text-[11px] ${riskMetrics.isBlocked ? "text-critical" : riskMetrics.needsAttention ? "text-amber-800" : "text-positive"}`}>{riskMetrics.reason}</p>
                     </div>
 
                     <div className="space-y-2 text-[11.5px] text-text-primary">
@@ -828,7 +864,7 @@ export default function ApprovalsPage() {
                     <button
                       onClick={() => setAdjustTargetProposal(selectedDrawerProposal)}
                       disabled={actionLoading}
-                      className="flex-1 py-2 text-[11px] font-bold rounded border border-amber-500/40 text-amber-600 hover:bg-amber-500/10 cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+                      className="flex-1 py-2 text-[11px] font-bold rounded border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
                     >
                       <SlidersHorizontal size={12} /> Adjust
                     </button>

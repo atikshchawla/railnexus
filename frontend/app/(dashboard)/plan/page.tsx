@@ -491,27 +491,35 @@ function BlockPlanPageContent() {
       )}
 
       {(activeProposals.length > 0 || currentRunId || optimizer) && !optimizerLoading && (
-        <div className="shrink-0 px-6 pt-5 bg-canvas">
-          <div className="grid grid-cols-4 gap-5">
-            <div className="bg-surface p-4 rounded-xl shadow-sm border border-border-default flex flex-col justify-between">
-              <span className="text-[12.5px] font-bold text-text-secondary uppercase tracking-wider">Proposals {currentRunId ? `(Run ${currentRunId.slice(0, 8)})` : "(Active)"}</span>
-              <strong className="text-[32px] font-black num mt-2 tracking-tight text-text-primary">{activeProposals.length}</strong>
+        <div className="shrink-0 px-6 pt-3 pb-1 bg-canvas">
+          <div className="grid grid-cols-4 gap-3">
+            <div className="bg-surface px-3.5 py-2.5 rounded-lg shadow-xs border border-border-default flex items-center justify-between">
+              <div>
+                <span className="text-[10.5px] font-bold text-text-secondary uppercase tracking-wider block">Proposals {currentRunId ? `(Run ${currentRunId.slice(0, 8)})` : "(Active)"}</span>
+                <span className="text-[20px] font-extrabold num tracking-tight text-text-primary">{activeProposals.length}</span>
+              </div>
             </div>
-            <div className="bg-surface p-4 rounded-xl shadow-sm border border-border-default flex flex-col justify-between">
-              <span className="text-[12.5px] font-bold text-text-secondary uppercase tracking-wider">Possession saving</span>
-              <strong className="text-[32px] font-black num mt-2 tracking-tight text-positive">
-                {activeProposals.reduce((sum, p) => sum + (p.possession_saving_minutes || 0), 0).toFixed(0)} <span className="text-[16px] font-semibold text-text-secondary tracking-normal">min</span>
-              </strong>
+            <div className="bg-surface px-3.5 py-2.5 rounded-lg shadow-xs border border-border-default flex items-center justify-between">
+              <div>
+                <span className="text-[10.5px] font-bold text-text-secondary uppercase tracking-wider block">Possession saving</span>
+                <span className="text-[20px] font-extrabold num tracking-tight text-positive">
+                  {activeProposals.reduce((sum, p) => sum + (p.possession_saving_minutes || 0), 0).toFixed(0)} <span className="text-[12px] font-semibold text-text-secondary tracking-normal">min</span>
+                </span>
+              </div>
             </div>
-            <div className="bg-surface p-4 rounded-xl shadow-sm border border-border-default flex flex-col justify-between">
-              <span className="text-[12.5px] font-bold text-text-secondary uppercase tracking-wider">Active section</span>
-              <strong className="text-[24px] font-black mt-3 tracking-tight text-text-primary truncate">{activeProposals[0]?.section_id || "Corridor"}</strong>
+            <div className="bg-surface px-3.5 py-2.5 rounded-lg shadow-xs border border-border-default flex items-center justify-between">
+              <div>
+                <span className="text-[10.5px] font-bold text-text-secondary uppercase tracking-wider block">Active section</span>
+                <span className="text-[16px] font-bold tracking-tight text-text-primary truncate block">{activeProposals[0]?.section_id || "Corridor"}</span>
+              </div>
             </div>
-            <div className="bg-surface p-4 rounded-xl shadow-sm border border-border-default flex flex-col justify-between">
-              <span className="text-[12.5px] font-bold text-text-secondary uppercase tracking-wider">Blocking conflicts</span>
-              <strong className="text-[32px] font-black num mt-2 tracking-tight text-critical">
-                {activeProposals.reduce((sum, p) => sum + (p.blocking_conflict_count || 0), 0)}
-              </strong>
+            <div className="bg-surface px-3.5 py-2.5 rounded-lg shadow-xs border border-border-default flex items-center justify-between">
+              <div>
+                <span className="text-[10.5px] font-bold text-text-secondary uppercase tracking-wider block">Blocking conflicts</span>
+                <span className="text-[20px] font-extrabold num tracking-tight text-critical">
+                  {activeProposals.reduce((sum, p) => sum + (p.blocking_conflict_count || 0), 0)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -519,7 +527,7 @@ function BlockPlanPageContent() {
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-canvas">
         {/* ─── Toolbar ──────────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-4 px-6 py-4 bg-canvas shrink-0">
+        <div className="flex items-center justify-between gap-4 px-6 py-2.5 bg-canvas shrink-0">
           <div className="flex items-center gap-4">
             <div className="flex bg-surface-sunken p-1 rounded-lg border border-border-default shadow-xs">
               {(["chart", "register"] as ViewMode[]).map(mode => (
@@ -603,10 +611,10 @@ function BlockPlanPageContent() {
         </div>
 
         {/* ─── Main area: Chart/Register + Detail Panel ────── */}
-        <div className="flex-1 flex min-h-0 px-6 pb-6 gap-6 bg-canvas">
+        <div className="flex-1 flex min-h-[520px] px-6 pb-4 gap-4 bg-canvas">
           <div className="flex-1 min-w-0 h-full bg-surface rounded-xl border border-border-default shadow-sm overflow-hidden flex flex-col">
             {viewMode === "chart" ? (
-              <div className="flex-1 min-w-0 h-full p-2">
+              <div className="flex-1 min-w-0 h-full p-1.5">
                 <BlockPlanChart
                   stations={stations}
                   blocks={planBlocks}

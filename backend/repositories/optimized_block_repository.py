@@ -33,13 +33,13 @@ class OptimizedBlockRepository:
     def save(self, db: Session, request_ids: list[str], result: dict) -> OptimizedBlock:
         """Persist a fresh optimizer result (append-only, preserving historical runs)."""
         h = self._make_hash(request_ids)
+        selected = result.get("selected_blocks") or []
+        first_block = selected[0] if selected else {}
         row = OptimizedBlock(
             request_ids_hash=h,
             request_ids=request_ids,
-            section_id=result.get("selected_blocks", [{}])[0].get("section_id", ""),
-            predicted_duration_minutes=result.get("selected_blocks", [{}])[0].get(
-                "predicted_duration_minutes", 0.0
-            ),
+            section_id=first_block.get("section_id", ""),
+            predicted_duration_minutes=first_block.get("predicted_duration_minutes", 0.0),
             result_json=result,
         )
         db.add(row)

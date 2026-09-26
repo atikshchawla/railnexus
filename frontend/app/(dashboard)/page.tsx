@@ -35,7 +35,7 @@ function getConflictStatusForTrain(trainId: string, derivedConflicts: DerivedCon
 
 export default function OverviewPage() {
   const { data, loading, error } = useDashboardData();
-  const { blocks, conflicts, trains: trainPaths } = data;
+  const { blocks, conflicts, serverConflicts, proposals, operationalBlocks, trains: trainPaths } = data;
   const [acknowledgedAlerts, setAcknowledgedAlerts] = useState<Set<string>>(new Set());
   const [expandedReasoning, setExpandedReasoning] = useState<Set<string>>(new Set());
   const [isMounted, setIsMounted] = useState(false);
@@ -52,8 +52,13 @@ export default function OverviewPage() {
   const unresolvedConflicts = conflicts.filter(c => c.status === "Unresolved")
     .sort((a, b) => new Date(a.windowStart).getTime() - new Date(b.windowStart).getTime());
 
-  const pendingApprovals = blocks.filter(b => b.status === "Under review" || b.status === "Submitted");
-  const activeApproved = blocks.filter(b => b.status === "Active" || b.status === "Approved");
+  const pendingProposalCount = proposals.length > 0
+    ? proposals.filter(p => p.status === "PROPOSED" || (!p.operational_block_id && p.status !== "REJECTED")).length
+    : blocks.filter(b => b.status === "Under review" || b.status === "Submitted").length;
+
+  const activeApprovedCount = operationalBlocks.length > 0
+    ? operationalBlocks.length
+    : blocks.filter(b => b.status === "Active" || b.status === "Approved").length;
 
   const blocksWithAI = blocks.filter(b => b.aiSuggestion !== null && (b.status === "Under review" || b.status === "Submitted"));
 
@@ -157,12 +162,12 @@ export default function OverviewPage() {
           </Link>
           <Link href="/approvals" className="bg-surface p-3 hover:bg-surface-sunken/50 transition-colors">
             <p className="text-[12px] text-text-secondary mb-0.5">Pending approvals</p>
-            <p className="text-[26px] font-semibold text-warning leading-none num">{pendingApprovals.length}</p>
+            <p className="text-[26px] font-semibold text-warning leading-none num">{pendingProposalCount}</p>
             <p className="text-[11px] text-text-secondary mt-1">Sorted by urgency</p>
           </Link>
           <Link href="/plan" className="bg-surface p-3 hover:bg-surface-sunken/50 transition-colors">
             <p className="text-[12px] text-text-secondary mb-0.5">Today&apos;s blocks</p>
-            <p className="text-[26px] font-semibold text-text-primary leading-none num">{activeApproved.length}</p>
+            <p className="text-[26px] font-semibold text-text-primary leading-none num">{activeApprovedCount}</p>
             <p className="text-[11px] text-text-secondary mt-1">Active / Approved</p>
           </Link>
         </div>
@@ -185,22 +190,22 @@ export default function OverviewPage() {
               </Link>
             </div>
             <div className="divide-y divide-border-default overflow-y-auto flex-1">
-              {unresolvedConflicts.slice(0, 2).map((c) => {
-                const blockA = blocks.find(b => b.id === c.blockAId)!;
-                const blockB = blocks.find(b => b.id === c.blockBId)!;
+              {unresolvedConflicts.slice(0, 4).map((c) => {
+                const blockA = blocks.find((b) => b.id === c.blockAId);
+                const blockB = blocks.find((b) => b.id === c.blockBId);
                 return (
                   <Link key={c.id} href={`/conflicts#${c.id}`} className="block px-3 py-2.5 hover:bg-surface-sunken/50">
                     <div className="flex items-center gap-2 mb-1">
-                      <DepartmentBadge dept={blockA.department} />
+                      {blockA ? <DepartmentBadge dept={blockA.department} /> : <span className="text-[10px] font-semibold text-brand">PROPOSAL</span>}
                       <span className="text-[11px] text-text-secondary font-medium">vs</span>
-                      <DepartmentBadge dept={blockB.department} />
+                      {blockB ? <DepartmentBadge dept={blockB.department} /> : <span className="text-[10px] font-semibold text-warning">TRAIN</span>}
                       <span className="ml-auto text-[11px] font-medium text-critical">{formatTimeOnly(c.windowStart)}</span>
                     </div>
                     <p className="text-[12px] font-medium text-text-primary truncate">
                       {c.overlapDescription}
                     </p>
                     <p className="text-[11px] text-text-secondary truncate mt-0.5">
-                      {blockA.id} &middot; {blockB.id}
+                      {c.blockAId} &middot; {c.blockBId}
                     </p>
                   </Link>
                 );
@@ -270,16 +275,18 @@ export default function OverviewPage() {
                           Has unresolved conflict — resolve in Conflicts before approval.
                         </span>
                       )}
-                      <button className="px-3 py-1.5 text-[12px] font-medium border border-border-default text-text-primary hover:bg-surface-sunken transition-colors">
-                        Reject
-                      </button>
-                      <button 
-                        disabled={!hasExpanded || !isEligible}
-                        title={!isEligible ? "Cannot approve unresolved conflict" : !hasExpanded ? "Expand reasoning to enable approval" : "Approve with AI recommendation"}
-                        className="px-3 py-1.5 text-[12px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      <Link
+                        href="/approvals"
+                        className="px-3 py-1.5 text-[12px] font-medium border border-border-default text-text-primary hover:bg-surface-sunken transition-colors rounded-sm inline-flex items-center gap-1"
                       >
-                        Approve
-                      </button>
+                        Review on Approvals
+                      </Link>
+                      <Link
+                        href="/approvals"
+                        className="px-3 py-1.5 text-[12px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors rounded-sm inline-flex items-center gap-1"
+                      >
+                        Approve via Controller Gate
+                      </Link>
                     </div>
                   </div>
                 );

@@ -140,3 +140,154 @@ export interface DerivedConflict {
   overlapMinutes: number;
   [key: string]: any;
 }
+
+// ─── Core Backend API Schemas (Phase 6 / 7 Integration) ───────────────
+
+export interface MaintenanceCreatePayload {
+  id?: string;
+  asset_id?: string | null;
+  section_id: string;
+  department: string;
+  work_type: string;
+  location_km: number;
+  priority?: string;
+  safety_critical?: boolean;
+  deadline_minutes?: number | null;
+  model_features?: Record<string, unknown>;
+  requires_power_isolation?: boolean;
+  requires_disconnection?: boolean;
+  earliest_start_minute?: number | null;
+  latest_end_minute?: number | null;
+}
+
+export interface MaintenanceRequestRecord {
+  id: string;
+  asset_id: string | null;
+  section_id: string;
+  department: string;
+  work_type: string;
+  location_km: number;
+  priority: string;
+  safety_critical: boolean;
+  deadline_minutes: number | null;
+  model_features: Record<string, unknown>;
+  status: string;
+  created_at: string;
+  source_system?: string | null;
+  external_id?: string | null;
+}
+
+export interface ApprovalProposalRecord {
+  id: string;
+  run_id: string;
+  section_id: string;
+  lead_department?: string;
+  departments: string[];
+  maintenance_request_ids: string[];
+  proposed_start_time: string;
+  proposed_end_time: string;
+  predicted_duration_minutes: number;
+  possession_saving_minutes: number;
+  train_impact_minutes: number;
+  trains_affected_count: number;
+  confidence_score: number;
+  status: string;
+  operational_block_id?: string | null;
+  operational_block_status?: string | null;
+  has_conflicts?: boolean;
+  conflicts_count?: number;
+  has_blocking_conflicts?: boolean;
+  blocking_conflict_count?: number;
+  top_factors_json?: Record<string, unknown>;
+  safety_cautions?: unknown[];
+  created_at: string;
+}
+
+export interface OperationalBlockRecord {
+  id: string;
+  section_id: string;
+  track_line?: string;
+  start_km?: number;
+  end_km?: number;
+  scheduled_start?: string;
+  scheduled_end?: string;
+  actual_start?: string | null;
+  actual_end?: string | null;
+  origin_proposal_id?: string | null;
+  proposal_id?: string | null;
+  run_id?: string | null;
+  override_id?: string | null;
+  lead_department: string;
+  status: string;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  revision_number?: number;
+  parent_block_id?: string | null;
+  is_current: boolean;
+  created_at: string;
+  allocated_start_time?: string;
+  allocated_end_time?: string;
+  departments?: string[];
+  maintenance_request_ids?: string[];
+}
+
+export interface ServerConflictRecord {
+  id: string;
+  run_id: string;
+  proposal_id?: string | null;
+  proposal_a_id?: string | null;
+  proposal_b_id?: string | null;
+  conflict_type: "TRAIN_CROSSING" | "SECTION_OCCUPATION" | "RESOURCE_COLLISION" | "POWER_INTERLOCK";
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  section_id?: string | null;
+  window_start_time: string;
+  window_end_time: string;
+  overlap_duration_minutes: number;
+  status: "UNRESOLVED" | "RESOLVED" | "ESCALATED";
+  train_number?: string | null;
+  train_direction?: string | null;
+  description: string;
+  resolution_details?: {
+    action: string;
+    resolved_by: string;
+    resolved_at: string;
+    reason: string;
+    rescheduled_start_minute?: number | null;
+    rescheduled_end_minute?: number | null;
+  } | null;
+  created_at: string;
+}
+
+export interface ConflictResolutionPayload {
+  resolution_action: string;
+  actor_id: string;
+  actor_role: string;
+  rationale_notes: string;
+  resulting_block_id?: string | null;
+}
+
+export interface ProposalApprovePayload {
+  block_id: string;
+  approved_by: string;
+  lead_department: string;
+  start_km: number;
+  end_km: number;
+  track_line?: string;
+  override_justification?: string | null;
+  override_code?: string | null;
+  operator_role?: string | null;
+  custom_scheduled_start?: string | null;
+  custom_scheduled_end?: string | null;
+}
+
+export interface ProposalRejectPayload {
+  rejected_by: string;
+  rejection_reason: string;
+  operator_role?: string | null;
+}
+
+export interface ConflictDetectPayload {
+  run_id: string;
+  proposal_ids?: string[] | null;
+  check_train_movements?: boolean;
+}

@@ -2,7 +2,7 @@ from datetime import date, datetime
 from uuid import uuid4
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String, TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database.connection import Base
@@ -10,6 +10,36 @@ from backend.database.connection import Base
 if TYPE_CHECKING:
     from backend.database.models.topology import Section
     from backend.database.models.conflict import Conflict
+
+
+class SafeDate(TypeDecorator):
+    impl = Date
+    cache_ok = True
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, date) and not isinstance(value, datetime):
+                return value
+            if isinstance(value, datetime):
+                return value.date()
+            if isinstance(value, str):
+                date_str = value.split(" ")[0].split("T")[0]
+                return date.fromisoformat(date_str)
+            return value
+        return process
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, date):
+                return value.isoformat()
+            if isinstance(value, str):
+                return value.split(" ")[0].split("T")[0]
+            return str(value)
+        return process
 
 
 class Train(Base):
@@ -38,7 +68,7 @@ class TrainMovement(Base):
     section_id: Mapped[str] = mapped_column(String(50), ForeignKey("sections.id"), index=True, nullable=False)
     movement_type: Mapped[str] = mapped_column(String(30), default="SCHEDULED", nullable=False)
     traffic_source: Mapped[str] = mapped_column(String(30), default="COA_TIMETABLE", nullable=False)
-    movement_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    movement_date: Mapped[date] = mapped_column(SafeDate, nullable=False, index=True)
     scheduled_minute: Mapped[int] = mapped_column(Integer, nullable=False)
     actual_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
     delay_minutes: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)

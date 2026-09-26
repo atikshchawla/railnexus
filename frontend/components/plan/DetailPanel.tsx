@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import type { ChartBlock, TrainPath, DerivedConflict, Station } from "@/lib/types";
 import { formatTime, getDeptColor, PRIORITY_BORDER, type PriorityTier } from "@/lib/chart-engine";
 
@@ -13,7 +15,7 @@ interface DetailPanelProps {
   onClose: () => void;
   onApplyResolution: (conflictId: string, resolutionIdx: number) => void;
   onSendForApproval?: (conflictId: string, resolutionIdx: number) => void;
-  onApproveBlock: (blockId: string) => void;
+  onApproveBlock?: (blockId: string) => void;
   onSelectConflict?: (conflictId: string) => void;
 }
 
@@ -102,15 +104,15 @@ export default function DetailPanel({
             </div>
           )}
 
-          {/* Approve action */}
-          {(block.status === "proposed" || block.status === "approved") && !block.isShadow && (
+          {/* Authoritative Approval Navigation */}
+          {!block.isShadow && (
             <div className="pt-3 border-t border-border-default">
-              <button
-                onClick={() => onApproveBlock(block.id)}
-                className="w-full py-2 bg-brand text-white text-[12px] font-medium hover:bg-brand-hover transition-colors"
+              <Link
+                href={`/approvals?focus=${encodeURIComponent(block.id)}`}
+                className="w-full flex items-center justify-center gap-1.5 py-2 bg-brand text-white text-[12px] font-medium hover:bg-brand-hover transition-colors"
               >
-                {block.status === "proposed" ? "Approve block" : "Mark as active"}
-              </button>
+                Review & Approve in Approvals <ArrowRight size={13} />
+              </Link>
             </div>
           )}
         </div>

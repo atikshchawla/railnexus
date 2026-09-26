@@ -44,7 +44,7 @@ class MaintenanceService:
 
         # If already stored with the nested key, use it directly.
         if "model_features" in raw and isinstance(raw["model_features"], dict):
-            features = raw["model_features"]
+            features = dict(raw["model_features"])
         else:
             # Flat storage — everything in raw IS the feature dict.
             features = {k: v for k, v in raw.items() if k not in (
@@ -52,7 +52,23 @@ class MaintenanceService:
                 "priority", "safety_critical", "deadline_minutes",
                 "asset_id", "equipment_ids", "earliest_start_minute",
                 "latest_end_minute", "requires_power_isolation", "requires_disconnection",
+                "source_system", "external_id", "external_payload",
             )}
+
+        # Ensure valid persisted domain fields from request columns are preserved in features
+        # where required by the ML scoring pipeline (predict_failure_risk, predict_duration, etc.)
+        if "section_id" not in features and request.section_id:
+            features["section_id"] = request.section_id
+        if "department" not in features and request.department:
+            features["department"] = request.department
+        if "work_type" not in features and request.work_type:
+            features["work_type"] = request.work_type
+        if "priority" not in features and request.priority:
+            features["priority"] = request.priority
+        if "safety_critical" not in features and request.safety_critical is not None:
+            features["safety_critical"] = request.safety_critical
+        if "location_km_marker" not in features and request.location_km is not None:
+            features["location_km_marker"] = request.location_km
 
         return {
             "id": request.id,

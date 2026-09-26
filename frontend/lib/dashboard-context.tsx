@@ -5,6 +5,7 @@ import {
   loadDashboardData,
   optimizeRequests,
   saveOptimizerOverrides,
+  resolveConflict as apiResolveConflict,
   type DashboardData,
   type OptimizerResponse,
   type OperatorOverride,
@@ -15,11 +16,14 @@ interface DashboardContextValue {
   loading: boolean;
   error: string | null;
   refresh: () => void;
+  // Current active optimization run ID
+  currentRunId: string | null;
+  setCurrentRunId: (id: string | null) => void;
   // Optimizer state — computed once, shared across all pages
   optimizer: OptimizerResponse | null;
   optimizerLoading: boolean;
   optimizerError: string | null;
-  rerunOptimizer: () => void;
+  rerunOptimizer: (customRequestIds?: string[]) => void;
   saveOverrides: (overrides: Record<string, OperatorOverride>) => Promise<void>;
   resolveConflict: (conflictId: string, resolutionAction: "Merged" | "Sequenced" | "Escalated") => void;
 }
@@ -27,8 +31,12 @@ interface DashboardContextValue {
 const emptyData: DashboardData = {
   blocks: [],
   conflicts: [],
+  serverConflicts: [],
+  proposals: [],
+  operationalBlocks: [],
   trains: [],
   stations: [],
+  topology: [],
   syncedAt: "",
 };
 
@@ -39,17 +47,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [currentRunId, setCurrentRunId] = useState<string | null>(null);
 
   // Optimizer — lifted up from individual pages
   const [optimizer, setOptimizer] = useState<OptimizerResponse | null>(null);
   const [optimizerLoading, setOptimizerLoading] = useState(false);
   const [optimizerError, setOptimizerError] = useState<string | null>(null);
-  const [resolvedConflicts, setResolvedConflicts] = useState<Record<string, { action: "Merged" | "Sequenced" | "Escalated", actor: string, timestamp: string }>>({});
   // Track the last ID set we optimized so we only re-run when it changes
   const lastOptimizedKey = useRef<string>("");
+  const optimizerRunningRef = useRef(false);
 
   const runOptimizer = useCallback(
-    (pendingIds: string[], force = false) => {
+    async (pendingIds: string[], force = false) => {
+      if (optimizerRunningRef.current) return;
       if (pendingIds.length === 0) {
         setOptimizer(null);
         lastOptimizedKey.current = "";
@@ -58,15 +68,25 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const key = [...pendingIds].sort().join(",");
       if (!force && key === lastOptimizedKey.current) return; // nothing changed
 
+      optimizerRunningRef.current = true;
       lastOptimizedKey.current = key;
       setOptimizerLoading(true);
       setOptimizerError(null);
-      optimizeRequests(pendingIds, force)
-        .then((res) => setOptimizer(res))
-        .catch((err: unknown) =>
-          setOptimizerError(err instanceof Error ? err.message : "Optimizer failed")
-        )
-        .finally(() => setOptimizerLoading(false));
+      try {
+        const res = await optimizeRequests(pendingIds, force);
+        setOptimizer(res);
+        if (res._run_id) {
+          setCurrentRunId(res._run_id);
+        }
+        // Authoritatively synchronize fresh dashboard data immediately
+        const freshData = await loadDashboardData();
+        setData(freshData);
+      } catch (err: unknown) {
+        setOptimizerError(err instanceof Error ? err.message : "Optimizer failed");
+      } finally {
+        optimizerRunningRef.current = false;
+        setOptimizerLoading(false);
+      }
     },
     [],
   );
@@ -75,26 +95,29 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    const fetchData = () => {
-      loadDashboardData()
-        .then((nextData) => {
-          if (!active) return;
-          setData(nextData);
-          setError(null);
+    const fetchData = async () => {
+      if (optimizerRunningRef.current) return;
 
-          // Run optimizer for pending blocks (served from cache if unchanged)
-          const pendingIds = nextData.blocks
-            .filter((b) => b.status === "Under review" || b.status === "Submitted")
-            .map((b) => b.id);
-          runOptimizer(pendingIds);
-        })
-        .catch((reason: unknown) => {
-          if (!active) return;
-          setError(reason instanceof Error ? reason.message : "Unable to reach the RailNexus backend");
-        })
-        .finally(() => {
-          if (active) setLoading(false);
+      try {
+        const nextData = await loadDashboardData();
+        if (!active) return;
+        setData(nextData);
+        setError(null);
+
+        // Never overwrite an active run (including historical or 0-result runs) during background refresh!
+        setCurrentRunId((prev) => {
+          if (prev !== null) return prev;
+          if (nextData.proposals.length > 0) {
+            return nextData.proposals[0].run_id;
+          }
+          return null;
         });
+      } catch (reason: unknown) {
+        if (!active) return;
+        setError(reason instanceof Error ? reason.message : "Unable to reach the RailNexus backend");
+      } finally {
+        if (active) setLoading(false);
+      }
     };
 
     fetchData();
@@ -104,14 +127,20 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       active = false;
       clearInterval(interval);
     };
-  }, [refreshToken, runOptimizer]);
+  }, [refreshToken]);
 
-  const rerunOptimizer = useCallback(() => {
-    const pendingIds = data.blocks
-      .filter((b) => b.status === "Under review" || b.status === "Submitted")
-      .map((b) => b.id);
-    runOptimizer(pendingIds, true); // force = bypass cache
-  }, [data.blocks, runOptimizer]);
+  const rerunOptimizer = useCallback(
+    (customRequestIds?: string[]) => {
+      const pendingIds =
+        customRequestIds && customRequestIds.length > 0
+          ? customRequestIds
+          : data.blocks
+              .filter((b) => b.status === "Under review" || b.status === "Submitted")
+              .map((b) => b.id);
+      runOptimizer(pendingIds, true); // force = bypass cache
+    },
+    [data.blocks, runOptimizer],
+  );
 
   const saveOverrides = useCallback(
     async (overrides: Record<string, OperatorOverride>) => {
@@ -126,36 +155,38 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     [optimizer],
   );
 
-  const resolveConflict = useCallback((conflictId: string, resolutionAction: "Merged" | "Sequenced" | "Escalated") => {
-    setResolvedConflicts(prev => ({
-      ...prev,
-      [conflictId]: {
-        action: resolutionAction,
-        actor: "Current User",
-        timestamp: new Date().toISOString()
+  const resolveConflict = useCallback(
+    async (conflictId: string, resolutionAction: "Merged" | "Sequenced" | "Escalated") => {
+      try {
+        const actionMap: Record<string, "MERGED" | "SEQUENCED" | "ESCALATED"> = {
+          Merged: "MERGED",
+          Sequenced: "SEQUENCED",
+          Escalated: "ESCALATED",
+        };
+        const canonicalAction = actionMap[resolutionAction] || "ESCALATED";
+        await apiResolveConflict(conflictId, {
+          resolution_action: canonicalAction,
+          actor_id: "CTRL-01",
+          actor_role: "SECTION_CONTROLLER",
+          rationale_notes: `Operator resolved via dashboard: ${resolutionAction}`,
+        });
+      } catch (e) {
+        console.warn("Backend conflict resolve call returned error:", e);
       }
-    }));
-  }, []);
-
-  // Merge resolved conflicts into the data being provided
-  const overriddenData = useMemo(() => {
-    return {
-      ...data,
-      conflicts: data.conflicts.map(c => 
-        resolvedConflicts[c.id] 
-          ? { ...c, status: "Resolved" as const, resolution: resolvedConflicts[c.id] } 
-          : c
-      )
-    };
-  }, [data, resolvedConflicts]);
+      setRefreshToken((t) => t + 1);
+    },
+    [],
+  );
 
   return (
     <DashboardContext.Provider
       value={{
-        data: overriddenData,
+        data,
         loading,
         error,
         refresh: () => setRefreshToken((t) => t + 1),
+        currentRunId,
+        setCurrentRunId,
         optimizer,
         optimizerLoading,
         optimizerError,

@@ -29,6 +29,7 @@ from backend.services.prediction_service import get_pipeline
 
 
 _REQUIRED_FEATURES = {
+    # Failure risk features
     "asset_age_days",
     "days_since_last_maintenance",
     "previous_failure_count",
@@ -44,6 +45,35 @@ _REQUIRED_FEATURES = {
     "asset_type",
     "department",
     "section_id",
+    # Duration features
+    "planned_duration_minutes",
+    "severity_score",
+    "workers_required",
+    "equipment_count",
+    "workload_per_worker",
+    "weather_risk",
+    "congestion_score",
+    "current_delay_minutes",
+    "window_average_delay_minutes",
+    "window_peak_delay_minutes",
+    "accumulated_tonnage_mgt",
+    "trains_in_section",
+    "section_complexity",
+    "traffic_density",
+    "safety_critical",
+    "is_heatwave_day",
+    "is_rain_day",
+    "request_hour",
+    "request_day_of_week",
+    "request_month",
+    "request_is_weekend",
+    "work_type",
+    "priority",
+    # Overrun risk features
+    "location_km_marker",
+    "window_train_count",
+    # Train impact features
+    "planned_start_hour",
 }
 
 
@@ -84,8 +114,18 @@ class OptimizationService:
 
         # ── Normalize and filter to ML-ready requests ───────────────────
         all_pipeline = [(r, self.maintenance_service.to_pipeline_request(r)) for r in requests if r is not None]
-        pipeline_ready = [(r, p) for r, p in all_pipeline if is_pipeline_ready(p)]
+        initial_ready = [(r, p) for r, p in all_pipeline if is_pipeline_ready(p)]
         skipped = [r.id for r, p in all_pipeline if not is_pipeline_ready(p)]
+
+        # Pre-score to ensure every passed request cleanly evaluates in the ML models
+        pipeline = get_pipeline()
+        pipeline_ready = []
+        for r, p in initial_ready:
+            try:
+                pipeline.score_request(p)
+                pipeline_ready.append((r, p))
+            except (KeyError, ValueError, TypeError):
+                skipped.append(r.id)
 
         if not pipeline_ready:
             raise HTTPException(

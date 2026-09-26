@@ -63,13 +63,20 @@ function addDays(iso: string, days: number): string {
   });
 }
 
+function getTodayIso(): string {
+  const d = new Date();
+  return ymdToIso({ year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() });
+}
+
 export default function DateNav({
-  currentDate = "2026-09-04",
+  currentDate,
   onDateChange,
   onPrev,
   onNext,
 }: DateNavProps) {
-  const [dateValue, setDateValue] = useState(() => ymdToIso(parseToYMD(currentDate)));
+  const [dateValue, setDateValue] = useState(() =>
+    currentDate ? ymdToIso(parseToYMD(currentDate)) : getTodayIso()
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync if external currentDate changes

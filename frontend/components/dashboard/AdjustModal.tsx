@@ -2,9 +2,20 @@
 
 import { useState } from "react";
 import { X, Clock, Train, AlertTriangle, Unlink, Info } from "lucide-react";
-import type { DisplayItem } from "@/app/(dashboard)/approvals/page";
-import type { OperatorOverride } from "@/lib/api";
+import type { BlockRecord } from "@/lib/types";
+import type { OptimizedBlockResponse, OperatorOverride } from "@/lib/api";
 import { DepartmentBadge } from "@/components/shared";
+
+export type DisplayItem =
+  | { isGrouped: false; item: BlockRecord; proposalId?: string }
+  | {
+      isGrouped: true;
+      id: string;
+      proposalId?: string;
+      optBlock: OptimizedBlockResponse;
+      items: BlockRecord[];
+      override?: OperatorOverride;
+    };
 
 interface AdjustModalProps {
   displayItem: DisplayItem;

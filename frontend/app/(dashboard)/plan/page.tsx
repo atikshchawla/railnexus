@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/layout";
 import { DateNav, BlockPlanChart, DetailPanel, ChartLegend, RegisterView } from "@/components/plan";
@@ -33,14 +33,21 @@ function parseBlockTimes(startIso: string, endIso: string): { start: number; end
 
 function BlockPlanPageContent() {
   const searchParams = useSearchParams();
-  const { data } = useDashboardData();
+  const {
+    data,
+    optimizer,
+    optimizerLoading,
+    optimizerError,
+    rerunOptimizer,
+    currentRunId,
+  } = useDashboardData();
   const { stations, trains } = data;
-  const [optimization, setOptimization] = useState<OptimizerResponse | null>(null);
-  const [optimizationError, setOptimizationError] = useState<string | null>(null);
-  const [isOptimizing, setIsOptimizing] = useState(false);
 
   // ─── State ─────────────────────────────────────────────
-  const [selectedDate, setSelectedDate] = useState("04 Sep 2026");
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const now = new Date();
+    return now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  });
   const [blocks, setBlocks] = useState<ChartBlock[]>(() => 
     data.blocks.map(b => {
       const times = parseBlockTimes(b.scheduledWindow.start, b.scheduledWindow.end);
@@ -69,62 +76,99 @@ function BlockPlanPageContent() {
     return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) * 1000;
   });
 
-  useEffect(() => {
-    const requestIds = data.blocks.map((block) => block.id);
-    if (requestIds.length === 0) return;
-    let active = true;
-    setIsOptimizing(true);
-    optimizeRequests(requestIds)
-      .then((result) => {
-        if (active) setOptimization(result);
-      })
-      .catch((reason: unknown) => {
-        if (active) setOptimizationError(reason instanceof Error ? reason.message : "Unable to optimize the live block plan");
-      })
-      .finally(() => {
-        if (active) setIsOptimizing(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [data.blocks]);
+  // Filter proposals strictly to active run
+  const activeProposals = useMemo(() => {
+    if (currentRunId) {
+      return data.proposals.filter((p) => p.run_id === currentRunId);
+    }
+    // If currentRunId is not set, take the most recent run_id
+    if (data.proposals.length > 0) {
+      const latestRunId = data.proposals[0].run_id;
+      return data.proposals.filter((p) => p.run_id === latestRunId);
+    }
+    return [];
+  }, [currentRunId, data.proposals]);
 
-  // ─── Derived conflicts (computed, never stored) ─────────
-  const optimizedBlocks = useMemo<ChartBlock[]>(() => {
-    if (!optimization) return [];
-    const today = new Date().setHours(0, 0, 0, 0);
-    return optimization.selected_blocks.map((candidate, index) => {
-      const members = blocks.filter((block) => candidate.request_ids.includes(block.id));
-      const first = members[0];
-      const start = (candidate.scheduled_start_minute ?? 0) * 60_000;
-      const end = (candidate.scheduled_end_minute ?? (candidate.scheduled_start_minute ?? 0) + candidate.predicted_duration_minutes) * 60_000;
+  // Sync selectedDate with active run's proposal date ONLY when the active run changes
+  const lastSyncedRunRef = useRef<string | null>(null);
+  useEffect(() => {
+    const runKey = currentRunId || (activeProposals.length > 0 ? activeProposals[0].run_id : null);
+    if (!runKey) return;
+    if (runKey !== lastSyncedRunRef.current) {
+      lastSyncedRunRef.current = runKey;
+      if (activeProposals.length > 0 && activeProposals[0].proposed_start_time) {
+        const d = new Date(activeProposals[0].proposed_start_time);
+        if (!isNaN(d.getTime())) {
+          const formatted = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+          setSelectedDate(formatted);
+        }
+      }
+    }
+  }, [currentRunId, activeProposals]);
+
+  const proposalBlocks = useMemo<ChartBlock[]>(() => {
+    if (activeProposals.length === 0) return [];
+    return activeProposals.map((prop) => {
+      const times = parseBlockTimes(prop.proposed_start_time, prop.proposed_end_time);
+      const constituent = data.blocks.filter((b) => (prop.maintenance_request_ids || []).includes(b.id));
+
+      // Authoritative geographic boundary from section topology
+      const sectionTopos = (data.topology || []).filter((t) => t.section_id === prop.section_id);
+      const secMinKm = sectionTopos.length > 0 ? Math.min(...sectionTopos.map((t) => Math.min(t.start_km, t.end_km))) : 0;
+      const secMaxKm = sectionTopos.length > 0 ? Math.max(...sectionTopos.map((t) => Math.max(t.start_km, t.end_km))) : 10;
+
+      // Filter constituent requests whose km fall legitimately inside the section topology
+      const validConstituents = constituent.filter(
+        (b) => b.location.kmStart >= secMinKm && b.location.kmEnd <= secMaxKm,
+      );
+
+      let kmStart: number;
+      let kmEnd: number;
+
+      if (validConstituents.length > 0) {
+        kmStart = Math.min(...validConstituents.map((b) => b.location.kmStart));
+        kmEnd = Math.max(...validConstituents.map((b) => b.location.kmEnd));
+      } else {
+        // If constituent request coordinates conflict with the proposal section,
+        // place it authoritatively within its section topology boundary:
+        kmStart = secMinKm;
+        kmEnd = Math.min(secMaxKm, secMinKm + Math.max(2.0, (secMaxKm - secMinKm) * 0.25));
+      }
+
+      // Ensure positive span within section boundaries
+      if (kmEnd <= kmStart) {
+        kmEnd = Math.min(secMaxKm, kmStart + 1.0);
+      }
+
+      const dept = (prop.departments?.[0] as any) || constituent[0]?.department || "Engg";
+
       return {
-        id: `OPT-${candidate.section_id}-${index + 1}`,
-        department: first?.department ?? "Engg",
-        km_start: Math.min(...members.map((member) => member.km_start)),
-        km_end: Math.max(...members.map((member) => member.km_end)),
-        time_start: start,
-        time_end: end,
-        status: "approved",
+        id: prop.id,
+        department: dept,
+        km_start: kmStart,
+        km_end: kmEnd,
+        time_start: times.start,
+        time_end: times.end,
+        status: prop.status.toLowerCase(),
         isShadow: false,
-        label: `Optimized possession (${candidate.request_ids.length} requests)`,
-        priorityTier: candidate.urgency_level === "high" ? "P1-critical" : "P2-high",
-        candidate,
-        today,
+        label: `Proposal ${prop.id.slice(0, 8)} (${prop.section_id})`,
+        priorityTier: prop.has_blocking_conflicts ? "P1-critical" : "P2-high",
       };
     });
-  }, [blocks, optimization]);
+  }, [activeProposals, data.blocks, data.topology]);
 
-  const planBlocks = optimizedBlocks.length > 0 ? optimizedBlocks : blocks;
+  // If an active run is established or proposals are present, stay strictly scoped to proposalBlocks.
+  // Only fall back to raw maintenance requests if no active run has ever been initiated and no proposals exist.
+  const planBlocks = (currentRunId || data.proposals.length > 0) ? proposalBlocks : blocks;
   const displayTrains = useMemo(() => {
-    const selected = optimization?.selected_blocks[0];
+    const selected = optimizer?.selected_blocks[0];
     const start = (selected?.scheduled_start_minute ?? -1) * 60_000;
     const end = (selected?.scheduled_end_minute ?? -1) * 60_000;
     return trains.map((train) => ({
       ...train,
       status: train.stops.some((stop) => stop.time >= start && stop.time <= end) ? "diverted" as const : "scheduled" as const,
     }));
-  }, [optimization, trains]);
+  }, [optimizer, trains]);
 
   const conflicts: DerivedConflict[] = useMemo(
     () => computeConflicts(planBlocks, displayTrains),
@@ -160,9 +204,11 @@ function BlockPlanPageContent() {
   }, []);
 
   // ─── URL deep-link on mount ────────────────────────────
+  const handledFocusRef = useRef<string | null>(null);
   useEffect(() => {
     const focus = searchParams.get("focus");
     if (!focus) return;
+    if (handledFocusRef.current === focus) return;
 
     // Find the element
     const block = planBlocks.find(b => b.id === focus);
@@ -170,6 +216,7 @@ function BlockPlanPageContent() {
     const conflict = conflicts.find(c => c.id === focus);
 
     if (block) {
+      handledFocusRef.current = focus;
       setSelectedId(block.id);
       setSelectedType("block");
       // Center view on the block
@@ -180,6 +227,7 @@ function BlockPlanPageContent() {
       setViewEnd(e);
       setViewMode("chart");
     } else if (train) {
+      handledFocusRef.current = focus;
       setSelectedId(train.id);
       setSelectedType("train");
       const firstTime = train.stops[0]?.time ?? 0;
@@ -191,6 +239,7 @@ function BlockPlanPageContent() {
       setViewEnd(e);
       setViewMode("chart");
     } else if (conflict) {
+      handledFocusRef.current = focus;
       setSelectedId(conflict.id);
       setSelectedType("conflict");
       const mid = conflict.intersectionTime;
@@ -216,15 +265,6 @@ function BlockPlanPageContent() {
   const handleClose = useCallback(() => {
     setSelectedId(null);
     setSelectedType(null);
-  }, []);
-
-  const handleApproveBlock = useCallback((blockId: string) => {
-    setBlocks(prev => prev.map(b => {
-      if (b.id !== blockId) return b;
-      if (b.status === "proposed") return { ...b, status: "approved" as const };
-      if (b.status === "approved") return { ...b, status: "active" as const };
-      return b;
-    }));
   }, []);
 
   const handleApplyResolution = useCallback((conflictId: string, resIdx: number) => {
@@ -327,6 +367,33 @@ function BlockPlanPageContent() {
     setViewEnd(e);
   }, [conflicts, displayTrains, handleSelect, planBlocks]);
 
+  const handleRunOptimizer = useCallback(() => {
+    // Run optimizer for pending requests, prioritizing active section and adhering to CP-SAT 32 limit per section
+    const activeSection = activeProposals[0]?.section_id;
+    const pendingBlocks = data.blocks.filter(
+      (b) => b.status === "Under review" || b.status === "Submitted"
+    );
+    const bySection: Record<string, string[]> = {};
+    const batchedIds: string[] = [];
+
+    // Prioritize active section requests first
+    const sorted = [...pendingBlocks].sort((a, b) => {
+      const aMatch = activeSection && (a.description.includes(activeSection) || (a as any).section_id === activeSection) ? 1 : 0;
+      const bMatch = activeSection && (b.description.includes(activeSection) || (b as any).section_id === activeSection) ? 1 : 0;
+      return bMatch - aMatch;
+    });
+
+    for (const b of sorted) {
+      const sec = (b as any).section_id || (activeSection && b.description.includes(activeSection) ? activeSection : "DEFAULT");
+      bySection[sec] = bySection[sec] || [];
+      if (bySection[sec].length < 32) {
+        bySection[sec].push(b.id);
+        batchedIds.push(b.id);
+      }
+    }
+    rerunOptimizer(batchedIds.length > 0 ? batchedIds : undefined);
+  }, [activeProposals, data.blocks, rerunOptimizer]);
+
   // Chart width estimation for responsive detail panel layout
   const chartWidthEst = typeof window !== "undefined" ? Math.max(600, window.innerWidth - 210 - 110 - (selectedId ? 320 : 0)) : 900;
 
@@ -337,21 +404,41 @@ function BlockPlanPageContent() {
         subtitle={`Section: Chennai division — all departments • ${selectedDate}`}
       />
 
-      {isOptimizing && (
+      {optimizerLoading && (
         <div className="bg-brand/10 border-b border-brand px-4 py-2 text-[12.5px] font-medium text-brand flex items-center justify-center gap-2 animate-pulse">
           <div className="w-3 h-3 rounded-full border-2 border-brand border-t-transparent animate-spin" />
-          ML Model running predictions and synchronizing plan...
+          CP-SAT Optimizer synchronizing authoritative block proposals...
         </div>
       )}
 
-      {optimizationError && <div className="border-b border-critical bg-critical/10 px-4 py-2 text-[12px] text-critical">Optimizer unavailable: {optimizationError}</div>}
-      {optimization && !isOptimizing && (
+      {optimizerError && (
+        <div className="border-b border-critical bg-critical/10 px-4 py-2 text-[12px] text-critical">
+          Optimizer notice: {optimizerError}
+        </div>
+      )}
+
+      {(activeProposals.length > 0 || currentRunId || optimizer) && !optimizerLoading && (
         <div className="grid grid-cols-4 gap-px bg-border-default border-b border-border-default text-[12px]">
-          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Optimized blocks</span><strong className="num ml-2">{optimization.totals.optimized_block_count}</strong></div>
-          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Possession saving</span><strong className="num ml-2">{Number(optimization.totals.possession_saving_minutes).toFixed(1)} min</strong></div>
-          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Scheduled window</span><strong className="num ml-2">{formatMinute(optimization.selected_blocks[0]?.scheduled_start_minute)} - {formatMinute(optimization.selected_blocks[0]?.scheduled_end_minute)}</strong></div>
-          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Train impact</span><strong className="num ml-2">{Math.round(optimization.selected_blocks[0]?.train_impact_minutes ?? 0)} min</strong></div>
-          <div className="bg-surface px-4 py-2"><span className="text-text-secondary">Train routing</span><strong className="ml-2">{displayTrains.filter((train) => train.status === "diverted").length} diverted / {displayTrains.filter((train) => train.status === "scheduled").length} scheduled</strong></div>
+          <div className="bg-surface px-4 py-2">
+            <span className="text-text-secondary">Proposals ({currentRunId ? `Run ${currentRunId.slice(0, 8)}` : "Active"})</span>
+            <strong className="num ml-2">{activeProposals.length}</strong>
+          </div>
+          <div className="bg-surface px-4 py-2">
+            <span className="text-text-secondary">Possession saving</span>
+            <strong className="num ml-2">
+              {activeProposals.reduce((sum, p) => sum + (p.possession_saving_minutes || 0), 0).toFixed(1)} min
+            </strong>
+          </div>
+          <div className="bg-surface px-4 py-2">
+            <span className="text-text-secondary">Active section</span>
+            <strong className="num ml-2">{activeProposals[0]?.section_id || "Corridor"}</strong>
+          </div>
+          <div className="bg-surface px-4 py-2">
+            <span className="text-text-secondary">Blocking conflicts</span>
+            <strong className="num ml-2 text-critical">
+              {activeProposals.reduce((sum, p) => sum + (p.blocking_conflict_count || 0), 0)}
+            </strong>
+          </div>
         </div>
       )}
 
@@ -374,6 +461,14 @@ function BlockPlanPageContent() {
             currentDate={selectedDate}
             onDateChange={setSelectedDate}
           />
+
+          <button
+            onClick={handleRunOptimizer}
+            disabled={optimizerLoading}
+            className="px-2.5 py-1 text-[11.5px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {optimizerLoading ? "Optimizing..." : "Run CP-SAT Optimizer"}
+          </button>
 
           {/* Zoom controls */}
           <div className="flex items-center gap-1 ml-auto">
@@ -463,7 +558,6 @@ function BlockPlanPageContent() {
               onClose={handleClose}
               onApplyResolution={handleApplyResolution}
               onSendForApproval={handleSendForApproval}
-              onApproveBlock={handleApproveBlock}
               onSelectConflict={(id) => handleSelect(id, "conflict")}
             />
           )}

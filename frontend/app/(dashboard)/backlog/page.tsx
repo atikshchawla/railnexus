@@ -131,6 +131,7 @@ export default function BacklogPage() {
         priority: formPriority,
         safety_critical: formSafetyCritical,
         deadline_minutes: (parseInt(formDeadlineHours, 10) || 24) * 60,
+        earliest_start_minute: new Date().getHours() * 60 + new Date().getMinutes(),
         model_features: {
           asset_age_days: 1800,
           days_since_last_maintenance: 90,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { ChartBlock, TrainPath, DerivedConflict, Station } from "@/lib/types";
 import { formatTime, getDeptColor, PRIORITY_BORDER, type PriorityTier } from "@/lib/chart-engine";
+import { getShortProposalId } from "@/components/approvals/approval-utils";
 
 interface DetailPanelProps {
   selectedId: string;
@@ -66,7 +67,7 @@ export default function DetailPanel({
           </div>
 
           <div>
-            <h4 className="text-[16px] font-semibold text-text-primary">{block.id}</h4>
+            <h4 className="text-[16px] font-semibold text-text-primary">{block.label}</h4>
             <p className="text-[13px] text-text-secondary mt-0.5">{block.description}</p>
           </div>
 
@@ -82,7 +83,7 @@ export default function DetailPanel({
             {block.parentBlockId && (
               <>
                 <dt className="text-text-secondary">Parent block</dt>
-                <dd className="font-medium">{block.parentBlockId}</dd>
+                <dd className="font-medium">{getShortProposalId(block.parentBlockId)}</dd>
               </>
             )}
           </dl>
@@ -98,7 +99,7 @@ export default function DetailPanel({
                   onClick={() => onSelectConflict?.(c.id)}
                 >
                   <span className="font-medium text-critical">{c.id}</span>
-                  <span className="text-text-secondary ml-1">— {c.overlap_minutes} min overlap with {c.trainId ?? c.otherBlockId}</span>
+                  <span className="text-text-secondary ml-1">— {c.overlap_minutes} min overlap with {c.trainId ?? getShortProposalId(c.otherBlockId!)}</span>
                 </div>
               ))}
             </div>
@@ -169,7 +170,7 @@ export default function DetailPanel({
                   onClick={() => onSelectConflict?.(c.id)}
                 >
                   <span className="font-medium text-critical">{c.id}</span>
-                  <span className="text-text-secondary ml-1">— Block {c.blockId}, {c.overlap_minutes} min overlap</span>
+                  <span className="text-text-secondary ml-1">— Block {getShortProposalId(c.blockId)}, {c.overlap_minutes} min overlap</span>
                 </div>
               ))}
             </div>
@@ -201,8 +202,8 @@ export default function DetailPanel({
             <h4 className="text-[16px] font-semibold text-text-primary">{conflict.id}</h4>
             <p className="text-[13px] text-text-secondary mt-0.5">
               {conflict.trainId
-                ? `Block ${conflict.blockId} intersects Train ${conflict.trainId}`
-                : `Block ${conflict.blockId} overlaps Block ${conflict.otherBlockId}`}
+                ? `Block ${getShortProposalId(conflict.blockId)} intersects Train ${conflict.trainId}`
+                : `Block ${getShortProposalId(conflict.blockId)} overlaps Block ${getShortProposalId(conflict.otherBlockId!)}`}
             </p>
           </div>
 

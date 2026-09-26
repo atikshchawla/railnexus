@@ -15,6 +15,13 @@ class MaintenanceService:
 
     def create(self, db: Session, payload: MaintenanceCreate, auto_commit: bool = True) -> MaintenanceRequest:
         self.topology_service.validate_section(db, payload.section_id)
+        
+        request_data = payload.model_dump()
+        if request_data.get("earliest_start_minute") is None:
+            from datetime import datetime
+            now = datetime.now()
+            request_data["earliest_start_minute"] = now.hour * 60 + now.minute
+
         request = MaintenanceRequest(
             id=payload.id or f"MR-{uuid4().hex[:10].upper()}",
             asset_id=payload.asset_id,
@@ -25,7 +32,7 @@ class MaintenanceService:
             priority=payload.priority.upper(),
             safety_critical=payload.safety_critical,
             deadline_minutes=payload.deadline_minutes,
-            request_data=payload.model_dump(),
+            request_data=request_data,
         )
         return self.repository.create(db, request, auto_commit=auto_commit)
 

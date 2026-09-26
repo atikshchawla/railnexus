@@ -29,4 +29,5 @@ def create_movement(payload: MovementCreate, db: Session = Depends(get_db)):
 
 @router.get("/movements", response_model=list[MovementRead])
 def list_movements(db: Session = Depends(get_db)):
-    return list(db.scalars(select(TmsMovement).order_by(TmsMovement.scheduled_minute)))
+    from backend.database.models.train import LegacyTmsMovement
+    return list(db.scalars(select(LegacyTmsMovement).order_by(LegacyTmsMovement.scheduled_minute)))

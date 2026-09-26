@@ -149,6 +149,33 @@ class OptimizationService:
             raise HTTPException(status_code=422, detail="one or more maintenance requests use an unknown section_id")
 
         raw_requests = [p for _, p in pipeline_ready]
+        
+        # --- Compute Free Corridors Avoiding Trains ---
+        from backend.database.models.train import LegacyTmsMovement
+        from ai_ml.optimizer import CorridorWindow
+        
+        section_movements: dict[str, list[LegacyTmsMovement]] = {}
+        for m in db.query(LegacyTmsMovement).filter(LegacyTmsMovement.section_id.in_(section_ids)).all():
+            section_movements.setdefault(m.section_id, []).append(m)
+            
+        corridors = []
+        for section_id in section_ids:
+            moves = sorted(section_movements.get(section_id, []), key=lambda x: x.scheduled_minute)
+            last_end = 0
+            for m in moves:
+                start_min = m.scheduled_minute
+                end_min = m.scheduled_minute + 20  # Approx section traversal time
+                if start_min > last_end:
+                    corridors.append(CorridorWindow(f"{section_id}-free-{last_end}", section_id, last_end, start_min))
+                last_end = max(last_end, end_min)
+            # Add remaining time until end of tomorrow
+            if last_end < 2880:
+                corridors.append(CorridorWindow(f"{section_id}-free-end", section_id, last_end, 2880))
+                
+        if not corridors:
+            corridors = None
+        # ---------------------------------------------
+
         try:
             t0 = time.perf_counter()
             result = get_pipeline().optimize(
@@ -156,6 +183,7 @@ class OptimizationService:
                 max_group_size=payload.max_group_size,
                 max_spatial_gap_km=payload.max_spatial_gap_km,
                 weights=OptimizerWeights(**payload.weights) if payload.weights else OptimizerWeights(),
+                corridors=corridors,
             ) if raw_requests else {"totals": {}, "selected_blocks": [], "model_outputs": {}}
             duration_ms = max(1, int((time.perf_counter() - t0) * 1000))
 

@@ -628,14 +628,18 @@ function ApprovalsPageContent() {
                     const isAdjusted = Boolean(ob.override_id);
                     return (
                       <tr key={ob.id} className="hover:bg-surface-sunken/40 transition-colors">
-                        <td className="px-4 py-3 font-mono text-[12px] font-bold text-brand">{ob.id}</td>
+                        <td className="px-4 py-3 font-mono text-[12px] font-bold text-brand">{getShortProposalId(ob.origin_proposal_id || ob.id)}</td>
                         <td className="px-4 py-3 font-medium text-text-primary">
                           <span className="text-[11px] bg-brand/10 text-brand px-1.5 py-0.5 rounded font-bold">
                             {ob.section_id}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <DepartmentBadge dept={ob.lead_department as any} />
+                          <div className="flex flex-wrap gap-1">
+                            {(ob.departments?.length ? ob.departments : [ob.lead_department]).map((d, idx) => (
+                              <DepartmentBadge key={idx} dept={d as any} />
+                            ))}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-[12px] font-medium text-text-primary whitespace-nowrap">
                           {formatTime(ob.scheduled_start || ob.allocated_start_time || "")} –{" "}
@@ -645,7 +649,7 @@ function ApprovalsPageContent() {
                           Km {ob.start_km ?? 0}–{ob.end_km ?? 0} ({ob.track_line || "UP"})
                         </td>
                         <td className="px-4 py-3 text-[11px] text-text-secondary font-mono">
-                          {ob.origin_proposal_id ? `${ob.origin_proposal_id.slice(0, 8)}...` : "—"}
+                          {ob.origin_proposal_id ? getShortProposalId(ob.origin_proposal_id) : "—"}
                         </td>
                         <td className="px-4 py-3">
                           {isAdjusted ? (
@@ -718,7 +722,7 @@ function ApprovalsPageContent() {
                   {rejectedProposals.map((p) => (
                     <tr key={p.id} className="hover:bg-surface-sunken/40 transition-colors">
                       <td className="px-4 py-3 font-mono text-[12px] font-bold text-text-primary">
-                        {p.id.slice(0, 8)}...
+                        {getShortProposalId(p.id)}
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-[11px] bg-brand/10 text-brand px-1.5 py-0.5 rounded font-bold">

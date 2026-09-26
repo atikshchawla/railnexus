@@ -65,7 +65,7 @@ function BlockPlanPageContent() {
         time_end: times.end,
         status: b.status.toLowerCase(),
         isShadow: false,
-        label: b.id,
+        label: getShortProposalId(b.id),
         priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low"
       } as ChartBlock;
     })
@@ -216,7 +216,7 @@ function BlockPlanPageContent() {
         time_end: times.end,
         status: b.status.toLowerCase(),
         isShadow: false,
-        label: b.id,
+        label: getShortProposalId(b.id),
         priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low",
       };
     }));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/layout";
 import { useDashboardData } from "@/lib/dashboard-context";
@@ -40,7 +40,7 @@ type TabMode = "pending" | "approved" | "rejected";
 type SortMode = "soonest" | "lowest_confidence" | "highest_saving" | "needs_attention";
 type RiskFilterMode = "all" | "attention" | "clear" | "blocked";
 
-export default function ApprovalsPage() {
+function ApprovalsPageContent() {
   const searchParams = useSearchParams();
   const focusId = searchParams.get("block_id") || searchParams.get("focus");
 
@@ -953,5 +953,13 @@ export default function ApprovalsPage() {
         />
       )}
     </>
+  );
+}
+
+export default function ApprovalsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-text-secondary">Loading approvals...</div>}>
+      <ApprovalsPageContent />
+    </Suspense>
   );
 }

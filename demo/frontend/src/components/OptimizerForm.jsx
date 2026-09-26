@@ -75,6 +75,78 @@ export default function OptimizerForm({ network }) {
     return Array.from(new Set(options)).sort((a,b) => a - b);
   };
 
+  const mapDept = (dept) => {
+    if (dept === "ENGG") return "TMS";
+    if (dept === "S&T" || dept === "SNT") return "SMMS";
+    if (dept === "TRD") return "TDMS";
+    return dept;
+  };
+
+  const submitThroughIntegration = async (req) => {
+    const externalDept = mapDept(req.department);
+    const description = `${req.department} ${req.work_type} at km ${req.location_km}`;
+
+    // 1. Try Member B (port 8787)
+    try {
+      const res = await fetch('http://localhost:8787/api/inject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          department: externalDept,
+          type: 'maintenance_block',
+          sectionId: req.section_id,
+          description: description,
+        })
+      });
+      if (res.ok) return await res.json();
+    } catch (_) {
+      // Member B unreachable, fall through to Mid-Layer or Demo Gateway
+    }
+
+    // 2. Try Mid-Layer Gateway (port 9002)
+    const reqId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : '10000000-0000-4000-8000-' + Math.floor(Math.random() * 1e12).toString().padStart(12, '0');
+
+    try {
+      const res = await fetch('http://localhost:9002/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: reqId,
+          department: externalDept,
+          type: 'maintenance_block',
+          train_id: null,
+          section_id: req.section_id,
+          description: description,
+          raised_at: new Date().toISOString(),
+        })
+      });
+      if (res.ok) return await res.json();
+    } catch (_) {
+      // Mid-Layer unreachable, fall through to Demo Gateway
+    }
+
+    // 3. Fallback to Demo Gateway directly (port 8000 /api/demo-gateway/requests)
+    const res = await fetch('http://localhost:8000/api/demo-gateway/requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        request_id: reqId,
+        department: externalDept,
+        type: 'maintenance_block',
+        train_id: null,
+        section_id: req.section_id,
+        description: description,
+        raised_at: new Date().toISOString(),
+      })
+    });
+    if (!res.ok) {
+      throw new Error(`Demo Gateway rejected request: ${await res.text()}`);
+    }
+    return await res.json();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -83,89 +155,12 @@ export default function OptimizerForm({ network }) {
 
     try {
       for (const req of requests) {
-        const payload = {
-          id: req.id,
-          section_id: req.section_id,
-          department: req.department,
-          work_type: req.work_type,
-          location_km: Number(req.location_km),
-          priority: "MEDIUM",
-          safety_critical: false,
-          model_features: {
-            planned_duration_minutes: Number(req.predicted_duration_minutes),
-            asset_age_days: 2500,
-            days_since_last_maintenance: 180,
-            previous_failure_count: 2,
-            lifetime_tonnage_mgt: 420.0,
-            tonnage_since_last_maintenance_mgt: 85.0,
-            daily_train_count: 120,
-            daily_tonnage_mgt: 2.5,
-            inspection_score: 55,
-            rainfall_mm: 20.0,
-            temperature_mean_c: 32.0,
-            max_wind_speed_kmh: 30.0,
-            is_heavy_rain_day: false,
-            asset_type: "TRACK_CIRCUIT",
-            department: req.department,
-            section_id: req.section_id,
-            severity_score: 8,
-            workers_required: 8,
-            equipment_count: 3,
-            workload_per_worker: 15.0,
-            weather_risk: 0.25,
-            congestion_score: 0.4,
-            current_delay_minutes: 10,
-            window_average_delay_minutes: 8,
-            window_peak_delay_minutes: 20,
-            accumulated_tonnage_mgt: 420.0,
-            trains_in_section: 12,
-            section_complexity: 0.7,
-            traffic_density: 0.8,
-            safety_critical: true,
-            is_heatwave_day: false,
-            is_rain_day: true,
-            request_hour: 10,
-            request_day_of_week: 1,
-            request_month: 9,
-            request_is_weekend: false,
-            location_km_marker: Number(req.location_km),
-            window_train_count: 25,
-            planned_start_hour: 10,
-            work_type: req.work_type,
-            priority: "MEDIUM"
-          }
-        };
-        
-        let res = await fetch('http://localhost:8000/api/maintenance', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        
-        let isExisting = false;
-        if (!res.ok) {
-          if (res.status === 409) {
-            isExisting = true;
-          } else {
-            throw new Error(`Failed to create request ${req.id}: ` + await res.text());
-          }
-        }
-        
-        if (!isExisting) {
-          res = await fetch(`http://localhost:8000/api/maintenance/${req.id}/predict`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          });
-          
-          if (!res.ok) {
-            throw new Error(`Failed to generate ML prediction for ${req.id}: ` + await res.text());
-          }
-        }
+        await submitThroughIntegration(req);
       }
       
-      setResult({ 
-        success: true, 
-        message: "Requests successfully submitted to the main RailNexus ABP system. They are now available as AI Suggestions for review on the main dashboard!" 
+      setResult({
+        success: true,
+        message: "Requests successfully submitted through the Integration Gateway to RailNexus ABP. They are now queued for AI optimization and review on the main dashboard!"
       });
     } catch (err) {
       setError(err.message);
@@ -176,24 +171,31 @@ export default function OptimizerForm({ network }) {
 
   const fetchAndApplyApprovedBlocks = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/maintenance?status=approved');
-      if (!res.ok) throw new Error("Failed to fetch approved blocks");
-      const approvedRequests = await res.json();
+      let res = await fetch('http://localhost:8000/api/operational-blocks');
+      let approvedBlocks = [];
+      if (res.ok) {
+        approvedBlocks = await res.json();
+      } else {
+        res = await fetch('http://localhost:8000/api/maintenance?status=approved');
+        if (res.ok) approvedBlocks = await res.json();
+      }
       
-      if (approvedRequests.length === 0) {
+      if (approvedBlocks.length === 0) {
         alert('No approved blocks found in the main system. Go to the RailNexus ABP dashboard and approve some suggestions first!');
         return;
       }
       
       let appliedCount = 0;
-      for (const req of approvedRequests) {
-        const duration = req.model_features?.planned_duration_minutes || 60;
+      for (const req of approvedBlocks) {
+        const duration = req.allocated_end_minute && req.allocated_start_minute
+          ? (req.allocated_end_minute - req.allocated_start_minute)
+          : (req.model_features?.planned_duration_minutes || 60);
         await fetch('http://localhost:9001/faults', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             section_id: req.section_id,
-            type: 'Approved ML Block',
+            type: 'Approved Operational Block',
             duration_ticks: duration
           })
         });

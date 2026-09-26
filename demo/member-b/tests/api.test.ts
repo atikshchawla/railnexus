@@ -45,7 +45,7 @@ describe("Member B HTTP API", () => {
       };
       expect(body.requests).toHaveLength(3);
       expect(body.decisions).toHaveLength(3);
-      expect(body.decisions.every((d) => d.decision === "approved")).toBe(true);
+      expect(body.decisions.every((d) => d.decision === "queued")).toBe(true);
     } finally {
       testServer.close();
     }
@@ -131,7 +131,7 @@ const health = await fetch(`${testServer.url}/health`);
       expect(body.request.department).toBe("TDMS");
       expect(body.request.trainId).toBe("JUDGE-1");
       expect(body.request.sectionId).toBe("SHU-WJR");
-      expect(body.decision.decision).toBe("approved");
+      expect(body.decision.decision).toBe("queued");
 
       const state = (await (
         await fetch(`${testServer.url}/api/state`)
@@ -140,7 +140,7 @@ const health = await fetch(`${testServer.url}/health`);
         departments: { TDMS: { requests: { id: string }[] } };
       };
       const barYj = state.sections.find((section) => section.id === "SHU-WJR");
-      expect(barYj?.state).toBe("Approved");
+      expect(barYj?.state).toBe("Queued");
       expect(state.departments.TDMS.requests).toHaveLength(1);
     } finally {
       testServer.close();
@@ -204,7 +204,7 @@ const health = await fetch(`${testServer.url}/health`);
         await fetch(`${testServer.url}/api/state`)
       ).json()) as { sections: { id: string; state: string }[] };
       const umbBar = state.sections.find((section) => section.id === "AJJ-SHU");
-      expect(umbBar?.state).toBe("Block active");
+      expect(umbBar?.state).toBe("Queued");
     } finally {
       testServer.close();
     }

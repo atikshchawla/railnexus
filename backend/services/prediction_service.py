@@ -16,7 +16,7 @@ def get_pipeline() -> ModelPipeline:
 
 
 class PredictionService:
-    def predict(self, db: Session, request: MaintenanceRequest) -> Prediction:
+    def predict(self, db: Session, request: MaintenanceRequest, auto_commit: bool = True) -> Prediction:
         scored = get_pipeline().score_request(MaintenanceService.to_pipeline_request(request))
         score, urgency = derive_priority(scored)
         output = {
@@ -40,6 +40,9 @@ class PredictionService:
             raw_output=output,
         )
         db.add(prediction)
-        db.commit()
-        db.refresh(prediction)
+        if auto_commit:
+            db.commit()
+            db.refresh(prediction)
+        else:
+            db.flush()
         return prediction

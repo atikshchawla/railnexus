@@ -18,6 +18,9 @@ class MaintenanceCreate(BaseModel):
     requires_disconnection: bool = False
     earliest_start_minute: int | None = Field(default=None, ge=0)
     latest_end_minute: int | None = Field(default=None, ge=0)
+    source_system: str | None = None
+    external_id: str | None = None
+    external_payload: dict | None = None
 
 
 class MaintenanceRead(MaintenanceCreate):

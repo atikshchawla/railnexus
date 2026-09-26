@@ -17,7 +17,7 @@ export function buildSmmsEngine(): DepartmentEngine {
       for (const section of snapshot.sections) {
         const fault = section.fault;
         if (!fault) continue;
-        if (store.getSectionState(section.id) === "Block active") continue;
+        if (store.getSectionState(section.id) === "Block active" || store.getSectionState(section.id) === "Queued") continue;
         if (
           store.hasOpenRequest({
             department: "SMMS",

@@ -51,11 +51,11 @@ export class Gateway {
       const faulted = this.snapshot?.sections.find((section) => section.section_id === request.section_id)?.state === "maintenance";
       decision = {
         request_id: request.request_id,
-        status: faulted ? "queued" : request.type === "maintenance_block" ? "approved" : "approved",
+        status: "queued",
         section_id: request.section_id,
-        resulting_state: faulted ? "maintenance" : request.type === "maintenance_block" ? "maintenance" : "reserved",
+        resulting_state: faulted ? "maintenance" : "clear",
         decided_at: new Date().toISOString(),
-        notes: faulted ? "Queued behind physical maintenance fault" : "Mock ABP allocation",
+        notes: faulted ? "Queued behind physical maintenance fault" : "Mock ABP request queued for planning",
       };
     } else {
       const response = await this.fetchImpl(this.config.abpApiUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request) });

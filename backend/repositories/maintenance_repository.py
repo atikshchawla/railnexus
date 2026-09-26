@@ -41,10 +41,13 @@ class MaintenanceRepository:
         )
         return db.scalar(stmt)
 
-    def create(self, db: Session, request: MaintenanceRequest) -> MaintenanceRequest:
+    def create(self, db: Session, request: MaintenanceRequest, auto_commit: bool = True) -> MaintenanceRequest:
         db.add(request)
-        db.commit()
-        db.refresh(request)
+        if auto_commit:
+            db.commit()
+            db.refresh(request)
+        else:
+            db.flush()
         return request
 
     def update_status(self, db: Session, request: MaintenanceRequest, status: str) -> MaintenanceRequest:

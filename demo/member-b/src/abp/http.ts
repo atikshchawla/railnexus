@@ -23,7 +23,7 @@ export function buildHttpAbp(
           body: JSON.stringify({ request }),
         });
         if (!response.ok) {
-          const degraded: AbpReply = { decision: "approved" };
+          const degraded: AbpReply = { decision: "queued" };
           return degraded;
         }
         const parsed = abpReplySchema.parse(await response.json());
@@ -34,7 +34,7 @@ export function buildHttpAbp(
         return reply;
       } catch (error) {
         console.warn(`[abp] request ${request.id} fell back to mock: ${String(error)}`);
-        const fallback: AbpReply = { decision: "approved" };
+        const fallback: AbpReply = { decision: "queued" };
         return fallback;
       }
     },

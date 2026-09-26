@@ -9,6 +9,8 @@ const DEPT_COLORS = {
 
 const STATUS_ICONS = {
   approved: <CheckCircle2 className="w-3 h-3 text-success" />,
+  queued: <Clock className="w-3 h-3 text-warning" />,
+  received: <Clock className="w-3 h-3 text-warning" />,
   pending: <Clock className="w-3 h-3 text-warning" />,
   rejected: <XCircle className="w-3 h-3 text-critical" />,
   raised: <Clock className="w-3 h-3 text-warning" />

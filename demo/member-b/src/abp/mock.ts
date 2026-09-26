@@ -15,17 +15,13 @@ export function buildMockAbp(): AbpPort {
       switch (request.type) {
         case "section_entry": {
           if (state === "Block active") return { decision: "rerouted" };
-          if (state === "Reserved" || state === "Queued" || state === "Approved") {
-            return { decision: "queued" };
-          }
-          return { decision: "approved", grantedWindow: { startMin: 0, endMin: 90 } };
+          return { decision: "queued" };
         }
         case "maintenance_block": {
-          if (state === "Block active") return { decision: "queued" };
-          return { decision: "approved", grantedWindow: { startMin: 0, endMin: 180 } };
+          return { decision: "queued" };
         }
         case "running_status":
-          return { decision: "approved" };
+          return { decision: "queued" };
       }
     },
   };

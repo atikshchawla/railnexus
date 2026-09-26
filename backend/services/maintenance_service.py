@@ -13,7 +13,7 @@ class MaintenanceService:
         self.repository = repository or MaintenanceRepository()
         self.topology_service = topology_service or TopologyService()
 
-    def create(self, db: Session, payload: MaintenanceCreate) -> MaintenanceRequest:
+    def create(self, db: Session, payload: MaintenanceCreate, auto_commit: bool = True) -> MaintenanceRequest:
         self.topology_service.validate_section(db, payload.section_id)
         request = MaintenanceRequest(
             id=payload.id or f"MR-{uuid4().hex[:10].upper()}",
@@ -27,7 +27,7 @@ class MaintenanceService:
             deadline_minutes=payload.deadline_minutes,
             request_data=payload.model_dump(),
         )
-        return self.repository.create(db, request)
+        return self.repository.create(db, request, auto_commit=auto_commit)
 
     @staticmethod
     def to_pipeline_request(request: MaintenanceRequest) -> dict:

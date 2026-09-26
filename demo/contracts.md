@@ -40,3 +40,15 @@ Member B sends the exact request object to `POST mid-layer:9002/requests`. The M
 - Member B: `MID_LAYER_URL`, `GET /state`, `GET /api/state`, and `POST /api/inject` for the judge form.
 
 The trained corridor is restricted to the eight model sections: `AJJ-SHU`, `SHU-WJR`, `WJR-MCN`, `MCN-KPD`, `KPD-GYM`, `GYM-AB`, `AB-VN`, `VN-JTJ`.
+
+## Three-System Architectural Boundary
+
+RailNexus ABP enforces strict separation across three layers:
+1. **Demo / Simulation**: External environment producing synthetic operational events (TMS, SMMS, TDMS).
+2. **Integration / Gateway**: Accepts external requests, captures source provenance (`source_system`, `external_id`), and normalizes into Core schema. Acceptance here is strictly non-authoritative (`status: "queued"`, `resulting_state: "clear"`).
+3. **Core RailNexus**: The authoritative planning system:
+   `MaintenanceRequest` → `Prediction` → `CP-SAT OptimizationRun` → `BlockProposal` → `Conflict Detection` → `Human Approval` → `OperationalBlock`.
+
+**Important Invariant:**
+Demo acceptance (`queued`) ≠ Core planning (`PROPOSED`) ≠ Human approval (`APPROVED`) ≠ Operational block (`OperationalBlock`).
+The Demo Gateway does NOT approve blocks.

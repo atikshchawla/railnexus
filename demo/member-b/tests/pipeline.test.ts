@@ -22,8 +22,8 @@ describe("end-to-end loop over the replay fixtures", () => {
     const frame1 = await pipeline.process(snapshot1 as never);
     expect(frame1.requests.filter((r) => r.department === "TDMS")).toHaveLength(3);
     expect(frame1.decisions).toHaveLength(3);
-    expect(frame1.decisions.every((d) => d.decision === "approved")).toBe(true);
-    expect(store.getSectionState("SHU-WJR")).toBe("Approved");
+    expect(frame1.decisions.every((d) => d.decision === "queued")).toBe(true);
+    expect(store.getSectionState("SHU-WJR")).toBe("Queued");
 
     const frame2 = await pipeline.process(snapshot2 as never);
     const tms = frame2.requests.filter((r) => r.department === "TMS");
@@ -32,11 +32,11 @@ describe("end-to-end loop over the replay fixtures", () => {
     expect(tms[0]!.trainId).toBe("12005");
     expect(smms).toHaveLength(1);
     expect(smms[0]!.sectionId).toBe("MCN-KPD");
-    expect(store.getSectionState("MCN-KPD")).toBe("Block active");
+    expect(store.getSectionState("MCN-KPD")).toBe("Queued");
 
     const frame3 = await pipeline.process(snapshot3 as never);
     expect(frame3.decisions.find((d) => d.sectionId === "MCN-KPD")).toBeUndefined();
-    expect(store.getSectionState("MCN-KPD")).toBe("Block active");
+    expect(store.getSectionState("MCN-KPD")).toBe("Queued");
 
     // No new SMMS request while the section already sits under a block.
     expect(frame3.requests.filter((r) => r.department === "SMMS")).toHaveLength(0);

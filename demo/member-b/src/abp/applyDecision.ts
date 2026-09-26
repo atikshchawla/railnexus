@@ -18,6 +18,7 @@ export function applyDecisionState(
     case "reserved":
       return "Reserved";
     case "queued":
+      if (type === "running_status") return current;
       return "Queued";
     case "rerouted":
       return "Rerouted";

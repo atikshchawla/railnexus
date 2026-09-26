@@ -5,9 +5,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
-Department = Literal["TMS", "TDMS", "SMMS"]
+Department = Literal["TMS", "TDMS", "SMMS", "ENGG", "TRD", "SNT", "S&T"]
 RequestType = Literal["running_status", "section_entry", "maintenance_block"]
-DecisionStatus = Literal["queued", "approved", "rerouted", "rejected"]
+DecisionStatus = Literal["queued", "received", "approved", "rerouted", "rejected"]
 ResultingState = Literal["clear", "occupied", "maintenance", "reserved"]
 
 

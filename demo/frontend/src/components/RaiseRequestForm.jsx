@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 
 export default function RaiseRequestForm({ network, world, raiseRequest }) {
   const [department, setDepartment] = useState('TDMS');
-  const [type, setType] = useState('section_entry');
+  const [type, setType] = useState('maintenance_block');
   const [trainId, setTrainId] = useState('');
   const [sectionId, setSectionId] = useState('');
+  const [description, setDescription] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
+  const [isError, setIsError] = useState(false);
 
   const sections = network?.sections || [];
   const trains = world?.trains || [];
@@ -13,11 +15,14 @@ export default function RaiseRequestForm({ network, world, raiseRequest }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatusMsg('');
+    setIsError(false);
     try {
-      await raiseRequest(department, type, sectionId, trainId);
-      setStatusMsg('Request submitted to ABP.');
-      setTimeout(() => setStatusMsg(''), 3000);
+      const res = await raiseRequest(department, type, sectionId, trainId, description);
+      const note = res?.decision?.notes ? ` (${res.decision.notes})` : '';
+      setStatusMsg(`Request submitted to RailNexus Core${note}`);
+      setTimeout(() => setStatusMsg(''), 5000);
     } catch (err) {
+      setIsError(true);
       setStatusMsg(`Request failed: ${err.message}`);
     }
   };
@@ -84,6 +89,18 @@ export default function RaiseRequestForm({ network, world, raiseRequest }) {
             ))}
           </select>
         </label>
+
+        <label className="flex flex-col gap-1.5 text-[12px] font-medium text-text-primary">
+          Description
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+            rows={2}
+            placeholder="Describe the maintenance work"
+            className="bg-surface border border-border-default text-text-primary px-3 py-2 text-[13px] rounded-sm focus:border-brand focus:ring-1 focus:ring-brand focus:outline-none transition-shadow resize-y"
+          />
+        </label>
         
         <button 
           type="submit" 
@@ -94,7 +111,9 @@ export default function RaiseRequestForm({ network, world, raiseRequest }) {
         </button>
         
         {statusMsg && (
-          <p className="text-[12px] text-success font-medium mt-1 min-h-[18px] text-center">{statusMsg}</p>
+          <p className={`text-[12px] font-medium mt-1 min-h-[18px] text-center ${isError ? 'text-critical' : 'text-success'}`}>
+            {statusMsg}
+          </p>
         )}
       </form>
     </div>

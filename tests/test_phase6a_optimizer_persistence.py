@@ -208,6 +208,21 @@ class TestPhase6AOptimizerPersistence(unittest.TestCase):
         # Verify ProposalDepartments count (at least 2 departments)
         self.assertGreaterEqual(len(first_proposal.departments), 2)
 
+    def test_ungrouped_request_is_persisted_as_individual_proposal(self):
+        self.r2.location_km = 30.0
+        self.db.commit()
+
+        result = self.service.optimize(self.db, self.payload)
+        run = self.opt_repo.get_run(self.db, result["_run_id"])
+
+        individual = [
+            proposal for proposal in run.proposals
+            if len(proposal.items) == 1 and proposal.items[0].maintenance_request_id == self.r2.id
+        ]
+        self.assertEqual(len(individual), 1)
+        self.assertEqual(individual[0].departments[0].department, self.r2.department)
+        self.assertEqual(individual[0].status, "PROPOSED")
+
     def test_2_relationships(self):
         """Test 2: Verification of ORM foreign keys and entity relationships."""
         result = self.service.optimize(self.db, self.payload)

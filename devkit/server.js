@@ -63,7 +63,7 @@ const SERVICES = {
     cwd: ROOT + "/demo/mid-layer",
     cmd: "npm",
     args: ["run", "start"],
-    env: { PORT: "9002", WORLD_URL: "http://localhost:9001/world-state", MOCK_ABP: "true" },
+    env: { PORT: "9002", WORLD_URL: "http://localhost:9001/world-state", ABP_API_URL: "http://localhost:8000/api/demo-gateway/requests", MOCK_ABP: "false" },
     url: "http://localhost:9002/world-state",
   },
   "member-b": {

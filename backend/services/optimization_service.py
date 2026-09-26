@@ -186,6 +186,20 @@ class OptimizationService:
 
         corridor_id = "AJJ-JTJ"
 
+        base_datetime = datetime(now.year, now.month, now.day)
+        model_outputs = result.get("model_outputs", {})
+
+        # Pre-compute covered requests from selected multi-request blocks
+        covered_req_ids: set[str] = {
+            r_id
+            for block in result.get("selected_blocks", [])
+            for r_id in block.get("request_ids", [])
+        }
+        uncovered_requests = [r for r in requests if r.id not in covered_req_ids]
+
+        selected_impact = sum(float(b.get("train_impact_minutes", 0.0)) for b in result.get("selected_blocks", []))
+        uncovered_impact = sum(float(model_outputs.get(r.id, {}).get("train_impact_minutes", 0.0)) for r in uncovered_requests)
+
         run = OptimizationRun(
             id=str(uuid4()),
             planning_horizon="WEEKLY",
@@ -205,15 +219,11 @@ class OptimizationService:
             solver_status=str(result.get("totals", {}).get("solver", "OPTIMAL")).upper(),
             solver_duration_ms=duration_ms,
             total_possession_saving_minutes=float(result.get("totals", {}).get("possession_saving_minutes", 0.0)),
-            total_train_impact_minutes=float(
-                sum(float(b.get("train_impact_minutes", 0.0)) for b in result.get("selected_blocks", []))
-            ),
+            total_train_impact_minutes=float(selected_impact + uncovered_impact),
             created_at=now,
         )
 
-        base_datetime = datetime(now.year, now.month, now.day)
-        model_outputs = result.get("model_outputs", {})
-
+        # ── Grouped / Shadow Proposals ──────────────────────────────
         for block in result.get("selected_blocks", []):
             block_req_ids: list[str] = block.get("request_ids", [])
             sec_id = block.get("section_id") or (req_map[block_req_ids[0]].section_id if block_req_ids and block_req_ids[0] in req_map else "AJJ-SHU")
@@ -308,6 +318,109 @@ class OptimizationService:
                 proposal.departments.append(dept_entry)
 
             run.proposals.append(proposal)
+
+        # ── Individual Proposals (Coverage Guarantee) ───────────────
+        # Eligible maintenance requests that could not form a grouped/shadow block
+        # must still be surfaced as authoritative individual BlockProposal records.
+        for req in uncovered_requests:
+            sec_id = req.section_id or "AJJ-SHU"
+            model_out = model_outputs.get(req.id, {})
+            duration_minutes = max(
+                1.0,
+                float(
+                    model_out.get("predicted_duration_minutes")
+                    or req.demanded_duration_minutes
+                    or (req.request_data or {}).get("planned_duration_minutes")
+                    or 60.0
+                ),
+            )
+
+            req_data = req.request_data or {}
+            earliest_start_min = (
+                getattr(req, "earliest_start_minute", None)
+                or req_data.get("earliest_start_minute")
+                or (req_data.get("model_features") or {}).get("earliest_start_minute")
+            )
+            latest_end_min = (
+                getattr(req, "latest_end_minute", None)
+                or req_data.get("latest_end_minute")
+                or (req_data.get("model_features") or {}).get("latest_end_minute")
+            )
+
+            if earliest_start_min is not None and earliest_start_min >= 0:
+                proposed_start = base_datetime + timedelta(minutes=earliest_start_min)
+            else:
+                proposed_start = now
+
+            if latest_end_min is not None and earliest_start_min is not None and latest_end_min > earliest_start_min:
+                proposed_end = base_datetime + timedelta(minutes=latest_end_min)
+            else:
+                proposed_end = proposed_start + timedelta(minutes=duration_minutes)
+
+            trains_affected = int(round(float(model_out.get("trains_affected", 0.0))))
+            overrun_prob = float(model_out.get("overrun_probability", 0.0))
+            if overrun_prob > 0.0:
+                confidence_score = round(max(0.0, min(1.0, 1.0 - overrun_prob)), 2)
+            else:
+                priority_num = float(model_out.get("priority_score") or (70.0 if req.priority == "CRITICAL" else 40.0))
+                confidence_score = round(max(0.0, min(1.0, priority_num / 100.0)), 2)
+
+            ind_proposal = BlockProposal(
+                id=str(uuid4()),
+                run_id=run.id,
+                section_id=sec_id,
+                proposed_start_time=proposed_start,
+                proposed_end_time=proposed_end,
+                predicted_duration_minutes=duration_minutes,
+                possession_saving_minutes=0.0,
+                train_impact_minutes=float(model_out.get("train_impact_minutes", 0.0)),
+                trains_affected_count=trains_affected,
+                confidence_score=confidence_score,
+                top_factors_json={
+                    "explanation": ["Individual maintenance block — single request coverage"],
+                    "priority_score": model_out.get("priority_score"),
+                    "urgency_level": model_out.get("urgency_level") or (req.priority or "MEDIUM").lower(),
+                    "separate_duration_minutes": duration_minutes,
+                    "expected_overrun_minutes": round(overrun_prob * duration_minutes, 1),
+                },
+                safety_cautions=[],
+                status="PROPOSED",
+                created_at=now,
+            )
+
+            # ProposalItem (1-to-1)
+            item = ProposalItem(
+                proposal_id=ind_proposal.id,
+                maintenance_request_id=req.id,
+                sequence_order=1,
+            )
+            ind_proposal.items.append(item)
+
+            # ProposalDepartment (single department)
+            demanded_dur = int(round(float(
+                req.demanded_duration_minutes
+                or (req.request_data or {}).get("planned_duration_minutes")
+                or duration_minutes
+            )))
+            power_iso = bool(
+                getattr(req, "requires_power_isolation", False)
+                or (req.request_data or {}).get("requires_power_isolation", False)
+            )
+            disconnect = bool(
+                getattr(req, "requires_disconnection", False)
+                or (req.request_data or {}).get("requires_disconnection", False)
+            )
+            dept_entry = ProposalDepartment(
+                proposal_id=ind_proposal.id,
+                department=req.department,
+                work_description=req.work_type,
+                demanded_duration_minutes=demanded_dur,
+                requires_power_isolation=power_iso,
+                requires_disconnection=disconnect,
+            )
+            ind_proposal.departments.append(dept_entry)
+
+            run.proposals.append(ind_proposal)
 
         return self.optimization_repo.create_run(db, run)
 

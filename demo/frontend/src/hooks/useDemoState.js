@@ -128,13 +128,19 @@ export function useDemoState() {
     fetchState();
   };
 
-  const raiseRequest = async (department, type, sectionId, trainId) => {
-    await fetch(`${CONFIG.memberB}/api/inject`, {
+  const raiseRequest = async (department, type, sectionId, trainId, description) => {
+    const res = await fetch(`${CONFIG.memberB}/api/inject`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ department, type, sectionId, trainId: trainId || undefined }),
+      body: JSON.stringify({ department, type, sectionId, trainId: trainId || undefined, description }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || `HTTP ${res.status}`);
+    }
+    const data = await res.json().catch(() => null);
     fetchState();
+    return data;
   };
 
   return {

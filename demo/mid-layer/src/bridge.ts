@@ -59,7 +59,10 @@ export class Gateway {
       };
     } else {
       const response = await this.fetchImpl(this.config.abpApiUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request) });
-      if (!response.ok) throw new Error(`ABP returned ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(`ABP returned ${response.status}: ${errorText}`);
+      }
       decision = decisionSchema.parse(await response.json());
     }
     this.decisions.push(decision); this.record("decision", decision); return decision;

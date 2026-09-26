@@ -26,6 +26,14 @@ def test_does_not_group_shared_equipment():
     assert result.ungrouped_request_ids == ["R1", "R2"]
 
 
+def test_eligible_request_without_grouping_partner_is_retained_for_individual_proposal():
+    result = optimize_requests([request("R1", 10)])
+
+    assert result.selected_blocks == []
+    assert result.ungrouped_request_ids == ["R1"]
+    assert result.totals["optimized_block_count"] == 1
+
+
 def test_priority_is_derived_from_risk_and_deadline():
     low = request("LOW", 10)
     urgent = MaintenanceRequest(

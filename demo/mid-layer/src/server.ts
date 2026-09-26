@@ -1,5 +1,5 @@
 import express from "express";
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import type { Gateway } from "./bridge.js";
 
@@ -26,6 +26,6 @@ export function buildApp(gateway: Gateway): Express {
   app.get("/decisions", (req, res) => res.json(gateway.getDecisions(Number(req.query.limit) || 100)));
   app.get("/log", (req, res) => res.json(gateway.logsSince(Number(req.query.limit) || 100)));
   app.post("/sync", async (_req, res) => { try { res.json(await gateway.syncWorld()); } catch (error) { res.status(502).json({ error: "world_sync_failed", message: String(error) }); } });
-  app.use((_error: unknown, _req, res, _next) => res.status(500).json({ error: "internal_error" }));
+  app.use((_error: unknown, _req: Request, res: Response, _next: NextFunction) => { res.status(500).json({ error: "internal_error" }); });
   return app;
 }

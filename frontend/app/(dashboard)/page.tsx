@@ -144,33 +144,56 @@ export default function OverviewPage() {
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-canvas">
         {/* Row 1: KPI tiles */}
-        <div className="shrink-0 px-4 pt-4">
-        <div className="grid grid-cols-4 gap-px bg-border-default border border-border-default">
-          <Link href="/backlog" className="bg-surface p-3 hover:bg-surface-sunken/50 transition-colors">
-            <p className="text-[12px] text-text-secondary mb-0.5">Open backlog items</p>
-            <p className={`text-[26px] font-semibold leading-none num ${criticalBlocks.length > 0 ? "text-critical" : "text-text-primary"}`}>
-              {blocks.length}
-            </p>
-            <p className="text-[11px] text-text-secondary mt-1">{criticalBlocks.length} critical</p>
-          </Link>
-          <Link href="/conflicts" className="bg-surface p-3 hover:bg-surface-sunken/50 transition-colors">
-            <p className="text-[12px] text-text-secondary mb-0.5">Unresolved conflicts</p>
-            <p className={`text-[26px] font-semibold leading-none num ${unresolvedConflicts.length > 0 ? "text-critical" : "text-text-primary"}`}>
-              {unresolvedConflicts.length}
-            </p>
-            <p className="text-[11px] text-text-secondary mt-1">Cross-department overlaps</p>
-          </Link>
-          <Link href="/approvals" className="bg-surface p-3 hover:bg-surface-sunken/50 transition-colors">
-            <p className="text-[12px] text-text-secondary mb-0.5">Pending approvals</p>
-            <p className="text-[26px] font-semibold text-warning leading-none num">{pendingProposalCount}</p>
-            <p className="text-[11px] text-text-secondary mt-1">Sorted by urgency</p>
-          </Link>
-          <Link href="/plan" className="bg-surface p-3 hover:bg-surface-sunken/50 transition-colors">
-            <p className="text-[12px] text-text-secondary mb-0.5">Today&apos;s blocks</p>
-            <p className="text-[26px] font-semibold text-text-primary leading-none num">{activeApprovedCount}</p>
-            <p className="text-[11px] text-text-secondary mt-1">Active / Approved</p>
-          </Link>
-        </div>
+        <div className="shrink-0 px-5 pt-5">
+          <div className="grid grid-cols-4 gap-4">
+            <Link href="/backlog" className="bg-surface p-4 rounded-lg border border-border-default shadow-sm hover:shadow-md hover:border-brand/30 transition-all group">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[13px] font-bold text-text-secondary uppercase tracking-wider group-hover:text-brand transition-colors">Open backlog</p>
+              </div>
+              <p className={`text-[32px] font-black leading-none num tracking-tight ${criticalBlocks.length > 0 ? "text-critical" : "text-text-primary"}`}>
+                {blocks.length}
+              </p>
+              <p className={`text-[12px] mt-2 font-medium ${criticalBlocks.length > 0 ? "text-critical" : "text-text-secondary"}`}>
+                {criticalBlocks.length} critical items
+              </p>
+            </Link>
+            
+            <Link href="/conflicts" className="bg-surface p-4 rounded-lg border border-border-default shadow-sm hover:shadow-md hover:border-brand/30 transition-all group">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[13px] font-bold text-text-secondary uppercase tracking-wider group-hover:text-brand transition-colors">Conflicts</p>
+              </div>
+              <p className={`text-[32px] font-black leading-none num tracking-tight ${unresolvedConflicts.length > 0 ? "text-critical" : "text-text-primary"}`}>
+                {unresolvedConflicts.length}
+              </p>
+              <p className={`text-[12px] mt-2 font-medium ${unresolvedConflicts.length > 0 ? "text-critical" : "text-text-secondary"}`}>
+                Cross-department overlaps
+              </p>
+            </Link>
+
+            <Link href="/approvals" className="bg-surface p-4 rounded-lg border border-border-default shadow-sm hover:shadow-md hover:border-brand/30 transition-all group">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[13px] font-bold text-text-secondary uppercase tracking-wider group-hover:text-brand transition-colors">Pending approvals</p>
+              </div>
+              <p className="text-[32px] font-black text-warning leading-none num tracking-tight">
+                {pendingProposalCount}
+              </p>
+              <p className="text-[12px] mt-2 font-medium text-warning">
+                Awaiting controller decision
+              </p>
+            </Link>
+
+            <Link href="/plan" className="bg-surface p-4 rounded-lg border border-border-default shadow-sm hover:shadow-md hover:border-brand/30 transition-all group">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[13px] font-bold text-text-secondary uppercase tracking-wider group-hover:text-brand transition-colors">Today's plan</p>
+              </div>
+              <p className="text-[32px] font-black text-positive leading-none num tracking-tight">
+                {activeApprovedCount}
+              </p>
+              <p className="text-[12px] mt-2 font-medium text-positive">
+                Active & Approved blocks
+              </p>
+            </Link>
+          </div>
         </div>
 
         {/* Row 2: Two-column — fills all remaining height */}
@@ -219,13 +242,13 @@ export default function OverviewPage() {
           </div>
 
           {/* Right column: AI suggestions — fills remaining width, scrolls inside */}
-          <div className="flex-1 min-w-0 bg-surface border border-border-default flex flex-col min-h-0 overflow-hidden">
-            <div className="px-3 py-2 border-b border-border-default flex items-center justify-between">
-              <h3 className="text-[14px] font-semibold text-text-primary">
-                AI suggestions
+          <div className="flex-1 min-w-0 bg-surface border border-border-default flex flex-col min-h-0 overflow-hidden rounded-lg shadow-sm">
+            <div className="px-4 py-3 border-b border-border-default flex items-center justify-between bg-surface-sunken/40">
+              <h3 className="text-[15px] font-bold text-text-primary">
+                AI ML Suggestions
               </h3>
-              <span className="text-[11px] text-text-secondary">
-                System-generated — review required
+              <span className="text-[12px] font-medium text-text-secondary bg-surface px-2 py-1 rounded shadow-xs border border-border-default">
+                Review required
               </span>
             </div>
             <div className="divide-y divide-border-default bg-surface-sunken/30 flex-1 min-h-0 overflow-y-auto">
@@ -269,23 +292,22 @@ export default function OverviewPage() {
                       </dl>
                     )}
 
-                    <div className="flex items-center justify-end gap-2 pt-1">
-                      {!isEligible && (
-                        <span className="text-[11px] text-critical font-medium mr-auto">
-                          Has unresolved conflict — resolve in Conflicts before approval.
+                    <div className="flex items-center justify-between gap-2 pt-2 mt-2 border-t border-border-default/50">
+                      {!isEligible ? (
+                        <span className="text-[12px] text-critical font-bold flex items-center gap-1.5">
+                          <AlertTriangle size={14} /> Resolve conflict before approval
+                        </span>
+                      ) : (
+                        <span className="text-[12px] text-success font-bold flex items-center gap-1.5">
+                          <CheckCircle2 size={14} /> Ready for review
                         </span>
                       )}
+                      
                       <Link
-                        href="/approvals"
-                        className="px-3 py-1.5 text-[12px] font-medium border border-border-default text-text-primary hover:bg-surface-sunken transition-colors rounded-sm inline-flex items-center gap-1"
+                        href={`/ai-insights?request_id=${encodeURIComponent(block.id)}`}
+                        className="px-4 py-1.5 text-[12px] font-bold bg-brand text-white hover:bg-brand-hover transition-colors rounded shadow-sm inline-flex items-center gap-1.5"
                       >
-                        Review on Approvals
-                      </Link>
-                      <Link
-                        href="/approvals"
-                        className="px-3 py-1.5 text-[12px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors rounded-sm inline-flex items-center gap-1"
-                      >
-                        Approve via Controller Gate
+                        Review Request <ArrowRight size={14} />
                       </Link>
                     </div>
                   </div>

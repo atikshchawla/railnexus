@@ -3,15 +3,46 @@
  * Manages spawning, stopping, and log-streaming for all project services.
  */
 
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { createServer } from "http";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join, resolve } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const HTML_PATH = join(__dirname, "index.html");
+
+const isWin = process.platform === "win32";
+
+function freePort(port) {
+  if (isWin) {
+    try {
+      const out = execSync(`netstat -ano | findstr :${port}`, { encoding: "utf8" });
+      const currentPid = process.pid.toString();
+      const killed = new Set();
+      for (const line of out.split("\n")) {
+        if (line.includes("LISTENING") || line.includes("Listen")) {
+          const parts = line.trim().split(/\s+/);
+          const pid = parts[parts.length - 1];
+          if (pid && pid !== "0" && pid !== currentPid && !killed.has(pid)) {
+            killed.add(pid);
+            console.log(`[devkit] Freeing occupied port ${port} (PID ${pid})...`);
+            try { execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" }); } catch {}
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
+function getPythonCmd() {
+  const venvWin = join(ROOT, ".venv", "Scripts", "python.exe");
+  const venvPosix = join(ROOT, ".venv", "bin", "python3");
+  if (isWin && existsSync(venvWin)) return venvWin;
+  if (!isWin && existsSync(venvPosix)) return venvPosix;
+  return isWin ? "python" : "python3";
+}
 
 const SERVICES = {
   "main-backend": {
@@ -22,7 +53,7 @@ const SERVICES = {
     color: "#6366f1",
     icon: "🚂",
     cwd: ROOT,
-    cmd: join(ROOT, ".venv", "bin", "python3"),
+    cmd: getPythonCmd(),
     args: ["-m", "uvicorn", "backend.main:app", "--reload", "--port", "8000"],
     env: {},
     url: "http://localhost:8000/health",
@@ -34,7 +65,7 @@ const SERVICES = {
     group: "main",
     color: "#8b5cf6",
     icon: "🖥️",
-    cwd: ROOT + "/frontend",
+    cwd: join(ROOT, "frontend"),
     cmd: "npm",
     args: ["run", "dev"],
     env: {},
@@ -47,7 +78,7 @@ const SERVICES = {
     group: "demo",
     color: "#0ea5e9",
     icon: "🌍",
-    cwd: ROOT + "/demo/member-a",
+    cwd: join(ROOT, "demo", "member-a"),
     cmd: "npm",
     args: ["run", "start"],
     env: { PORT: "9001" },
@@ -60,7 +91,7 @@ const SERVICES = {
     group: "demo",
     color: "#f59e0b",
     icon: "🔀",
-    cwd: ROOT + "/demo/mid-layer",
+    cwd: join(ROOT, "demo", "mid-layer"),
     cmd: "npm",
     args: ["run", "start"],
     env: { PORT: "9002", WORLD_URL: "http://localhost:9001/world-state", ABP_API_URL: "http://localhost:8000/api/demo-gateway/requests", MOCK_ABP: "false" },
@@ -73,11 +104,11 @@ const SERVICES = {
     group: "demo",
     color: "#10b981",
     icon: "📋",
-    cwd: ROOT + "/demo/member-b",
+    cwd: join(ROOT, "demo", "member-b"),
     cmd: "npm",
     args: ["run", "start"],
     env: { PORT: "8787", MID_LAYER_URL: "http://localhost:9002" },
-    url: "http://localhost:8787",
+    url: "http://localhost:8787/state",
   },
   "demo-frontend": {
     id: "demo-frontend",
@@ -86,17 +117,25 @@ const SERVICES = {
     group: "demo",
     color: "#ec4899",
     icon: "🪟",
-    cwd: ROOT + "/demo/frontend",
+    cwd: join(ROOT, "demo", "frontend"),
     cmd: "npm",
     args: ["run", "dev"],
     env: {},
-    url: null,
+    url: "http://localhost:5173",
   },
 };
 
 const running = new Map();
 const sseClients = new Map();
 const statuses = new Map(Object.keys(SERVICES).map((id) => [id, "stopped"]));
+
+setInterval(() => {
+  for (const [id, set] of sseClients) {
+    for (const res of set) {
+      try { res.write(":keepalive\n\n"); } catch { set.delete(res); }
+    }
+  }
+}, 15000);
 
 function pushLog(serviceId, line) {
   const entry = running.get(serviceId);
@@ -131,8 +170,17 @@ function startService(id) {
   if (!svc) return { ok: false, msg: "Unknown service" };
 
   const env = { ...process.env, ...svc.env };
-  const proc = spawn(svc.cmd, svc.args, { cwd: svc.cwd, env });
-  running.set(id, { proc, logs: [] });
+  const cmd = svc.id === "main-backend" ? getPythonCmd() : svc.cmd;
+  let proc;
+  if (isWin) {
+    const formattedCmd = cmd.includes(" ") ? `"${cmd}"` : cmd;
+    const formattedArgs = (svc.args || []).map((arg) => (arg.includes(" ") ? `"${arg}"` : arg)).join(" ");
+    const fullCmd = formattedArgs ? `${formattedCmd} ${formattedArgs}` : formattedCmd;
+    proc = spawn(fullCmd, { cwd: svc.cwd, env, shell: true });
+  } else {
+    proc = spawn(cmd, svc.args, { cwd: svc.cwd, env });
+  }
+  running.set(id, { proc, logs: [], stopping: false });
   statuses.set(id, "running");
   broadcastStatus(id);
 
@@ -144,8 +192,9 @@ function startService(id) {
   proc.stderr.on("data", onData);
 
   proc.on("exit", (code, signal) => {
+    const stopping = running.get(id)?.stopping;
     running.delete(id);
-    const status = code === 0 || signal === "SIGTERM" ? "stopped" : "error";
+    const status = stopping || code === 0 || signal === "SIGTERM" ? "stopped" : "error";
     statuses.set(id, status);
     pushLog(id, `[devkit] process exited — code=${code} signal=${signal}`);
     broadcastStatus(id);
@@ -164,8 +213,17 @@ function startService(id) {
 function stopService(id) {
   const entry = running.get(id);
   if (!entry) return { ok: false, msg: "Not running" };
-  entry.proc.kill("SIGTERM");
-  setTimeout(() => { if (running.has(id)) entry.proc.kill("SIGKILL"); }, 4000);
+  entry.stopping = true;
+  if (isWin && entry.proc.pid) {
+    try {
+      spawn("taskkill", ["/pid", entry.proc.pid.toString(), "/T", "/F"]);
+    } catch {
+      entry.proc.kill("SIGTERM");
+    }
+  } else {
+    entry.proc.kill("SIGTERM");
+    setTimeout(() => { if (running.has(id)) entry.proc.kill("SIGKILL"); }, 4000);
+  }
   return { ok: true };
 }
 
@@ -186,10 +244,10 @@ const server = createServer((req, res) => {
     return;
   }
 
-  if (method === "GET" && (path === "/" || path === "/index.html")) {
+  if ((method === "GET" || method === "HEAD") && (path === "/" || path === "/index.html")) {
     try {
       const html = readFileSync(HTML_PATH, "utf8");
-      return send(res, 200, html, "text/html; charset=utf-8");
+      return send(res, 200, method === "HEAD" ? "" : html, "text/html; charset=utf-8");
     } catch {
       return send(res, 500, "UI not found", "text/plain");
     }
@@ -245,6 +303,17 @@ const server = createServer((req, res) => {
 });
 
 const PORT = process.env.DEVKIT_PORT || 4242;
-server.listen(PORT, () => {
+
+freePort(PORT);
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`\n❌ Port ${PORT} is already in use by another process. Please stop any existing devkit server first.\n`);
+    process.exit(1);
+  }
+  throw err;
+});
+
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`\n🚂 RailNexus DevKit running at http://localhost:${PORT}\n`);
 });

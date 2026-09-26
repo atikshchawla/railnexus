@@ -12,7 +12,7 @@ ResultingState = Literal["clear", "occupied", "maintenance", "reserved"]
 
 
 class DemoRequest(BaseModel):
-    request_id: UUID
+    request_id: str
     department: Department
     type: RequestType
     train_id: str | None
@@ -22,7 +22,7 @@ class DemoRequest(BaseModel):
 
 
 class DemoDecision(BaseModel):
-    request_id: UUID
+    request_id: str
     status: DecisionStatus
     section_id: str
     resulting_state: ResultingState

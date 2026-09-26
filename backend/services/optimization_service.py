@@ -112,8 +112,19 @@ class OptimizationService:
             if cached:
                 return cached
 
+        # ── Separate requests by IMMUTABLE vs OPTIMIZABLE ───────────────
+        latest_run = self.optimization_repo.get_latest_run(db, corridor_id="AJJ-JTJ")
+        immutable_req_ids = set()
+        if latest_run:
+            for prop in latest_run.proposals:
+                if prop.status in ("ACCEPTED", "OVERRIDDEN", "REJECTED", "ACTIVE", "COMPLETED"):
+                    for item in prop.items:
+                        immutable_req_ids.add(item.maintenance_request_id)
+        
+        optimizable_requests = [r for r in requests if r is not None and r.id not in immutable_req_ids]
+
         # ── Normalize and filter to ML-ready requests ───────────────────
-        all_pipeline = [(r, self.maintenance_service.to_pipeline_request(r)) for r in requests if r is not None]
+        all_pipeline = [(r, self.maintenance_service.to_pipeline_request(r)) for r in optimizable_requests]
         initial_ready = [(r, p) for r, p in all_pipeline if is_pipeline_ready(p)]
         skipped = [r.id for r, p in all_pipeline if not is_pipeline_ready(p)]
 
@@ -127,7 +138,7 @@ class OptimizationService:
             except (KeyError, ValueError, TypeError):
                 skipped.append(r.id)
 
-        if not pipeline_ready:
+        if not pipeline_ready and not immutable_req_ids:
             raise HTTPException(
                 status_code=422,
                 detail="No requests carry the required ML model features. Run /api/demo/seed first.",
@@ -145,7 +156,7 @@ class OptimizationService:
                 max_group_size=payload.max_group_size,
                 max_spatial_gap_km=payload.max_spatial_gap_km,
                 weights=OptimizerWeights(**payload.weights) if payload.weights else OptimizerWeights(),
-            )
+            ) if raw_requests else {"totals": {}, "selected_blocks": [], "model_outputs": {}}
             duration_ms = max(1, int((time.perf_counter() - t0) * 1000))
 
             if skipped:
@@ -159,6 +170,7 @@ class OptimizationService:
                 requests=ready_maintenance_requests,
                 result=result,
                 duration_ms=duration_ms,
+                latest_run=latest_run,
             )
             result["_run_id"] = opt_run.id
 
@@ -178,6 +190,7 @@ class OptimizationService:
         requests: list[MaintenanceRequest],
         result: dict[str, Any],
         duration_ms: int = 0,
+        latest_run: OptimizationRun | None = None,
     ) -> OptimizationRun:
         """Construct and transactionally persist an OptimizationRun and its child proposals."""
         now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -185,6 +198,46 @@ class OptimizationService:
         input_hash = hashlib.sha256(",".join(sorted(payload.request_ids)).encode()).hexdigest()
 
         corridor_id = "AJJ-JTJ"
+
+        if latest_run:
+            run = latest_run
+            run.input_requests_hash = input_hash
+            run.solver_duration_ms = duration_ms
+            run.algorithm_version = f"cp_sat_{result.get('totals', {}).get('solver', 'v2.1')}"
+            run.weights_json = payload.weights or {}
+            
+            # Remove ONLY the PROPOSED blocks, leaving immutable blocks intact
+            proposals_to_keep = []
+            for proposal in run.proposals:
+                if proposal.status == "PROPOSED":
+                    db.delete(proposal)
+                else:
+                    proposals_to_keep.append(proposal)
+            run.proposals = proposals_to_keep
+        else:
+            run = OptimizationRun(
+                id=str(uuid4()),
+                planning_horizon="WEEKLY",
+                planning_cycle_label=f"{now.year}-W{now.isocalendar().week:02d}",
+                effective_date_start=now.date(),
+                effective_date_end=now.date() + timedelta(days=7),
+                corridor_id=corridor_id,
+                input_requests_hash=input_hash,
+                input_snapshot_json={
+                    "request_ids": payload.request_ids,
+                    "max_group_size": payload.max_group_size,
+                    "max_spatial_gap_km": payload.max_spatial_gap_km,
+                    "weights": payload.weights,
+                },
+                algorithm_version=f"cp_sat_{result.get('totals', {}).get('solver', 'v2.1')}",
+                weights_json=payload.weights or {},
+                solver_status=str(result.get("totals", {}).get("solver", "OPTIMAL")).upper(),
+                solver_duration_ms=duration_ms,
+                total_possession_saving_minutes=0.0,
+                total_train_impact_minutes=0.0,
+                created_at=now,
+            )
+            db.add(run)
 
         base_datetime = datetime(now.year, now.month, now.day)
         model_outputs = result.get("model_outputs", {})
@@ -200,28 +253,6 @@ class OptimizationService:
         selected_impact = sum(float(b.get("train_impact_minutes", 0.0)) for b in result.get("selected_blocks", []))
         uncovered_impact = sum(float(model_outputs.get(r.id, {}).get("train_impact_minutes", 0.0)) for r in uncovered_requests)
 
-        run = OptimizationRun(
-            id=str(uuid4()),
-            planning_horizon="WEEKLY",
-            planning_cycle_label=f"{now.year}-W{now.isocalendar().week:02d}",
-            effective_date_start=now.date(),
-            effective_date_end=now.date() + timedelta(days=7),
-            corridor_id=corridor_id,
-            input_requests_hash=input_hash,
-            input_snapshot_json={
-                "request_ids": payload.request_ids,
-                "max_group_size": payload.max_group_size,
-                "max_spatial_gap_km": payload.max_spatial_gap_km,
-                "weights": payload.weights,
-            },
-            algorithm_version=f"cp_sat_{result.get('totals', {}).get('solver', 'v2.1')}",
-            weights_json=payload.weights or {},
-            solver_status=str(result.get("totals", {}).get("solver", "OPTIMAL")).upper(),
-            solver_duration_ms=duration_ms,
-            total_possession_saving_minutes=float(result.get("totals", {}).get("possession_saving_minutes", 0.0)),
-            total_train_impact_minutes=float(selected_impact + uncovered_impact),
-            created_at=now,
-        )
 
         # ── Grouped / Shadow Proposals ──────────────────────────────
         for block in result.get("selected_blocks", []):
@@ -422,7 +453,18 @@ class OptimizationService:
 
             run.proposals.append(ind_proposal)
 
-        return self.optimization_repo.create_run(db, run)
+        # Recompute totals for the run including immutable blocks
+        total_saving = 0.0
+        total_impact = 0.0
+        for p in run.proposals:
+            total_saving += p.possession_saving_minutes
+            total_impact += p.train_impact_minutes
+        run.total_possession_saving_minutes = total_saving
+        run.total_train_impact_minutes = total_impact
+
+        db.commit()
+        db.refresh(run)
+        return run
 
     def save_legacy_overrides(self, db: Session, cache_id: str, overrides: dict[str, Any]) -> bool:
         """Persist operator overrides to legacy cache."""

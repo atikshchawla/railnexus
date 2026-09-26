@@ -42,7 +42,7 @@ export default function DetailPanel({
     const relatedConflicts = conflicts.filter(c => c.blockId === block.id || c.otherBlockId === block.id);
 
     return (
-      <div className="w-[320px] shrink-0 border-l border-border-default bg-surface flex flex-col overflow-y-auto">
+      <div className="w-full h-full bg-surface flex flex-col overflow-y-auto">
         <Header title="Block details" onClose={onClose} />
         <div className="p-4 space-y-4">
           {/* Badges */}
@@ -105,7 +105,7 @@ export default function DetailPanel({
           )}
 
           {/* Authoritative Approval Navigation */}
-          {!block.isShadow && (
+          {!block.isShadow && block.id.length === 36 && block.status === "proposed" && (
             <div className="pt-3 border-t border-border-default">
               <Link
                 href={`/approvals?focus=${encodeURIComponent(block.id)}`}
@@ -127,7 +127,7 @@ export default function DetailPanel({
     const relatedConflicts = conflicts.filter(c => c.trainId === train.id);
 
     return (
-      <div className="w-[320px] shrink-0 border-l border-border-default bg-surface flex flex-col overflow-y-auto">
+      <div className="w-full h-full bg-surface flex flex-col overflow-y-auto">
         <Header title="Train details" onClose={onClose} />
         <div className="p-4 space-y-4">
           <div className="flex items-center gap-2">
@@ -185,7 +185,7 @@ export default function DetailPanel({
     if (!conflict) return null;
 
     return (
-      <div className="w-[320px] shrink-0 border-l border-border-default bg-surface flex flex-col overflow-y-auto">
+      <div className="w-full h-full bg-surface flex flex-col overflow-y-auto">
         <Header title="Conflict details" onClose={onClose} />
         <div className="p-4 space-y-4">
           <div className="flex items-center gap-2">

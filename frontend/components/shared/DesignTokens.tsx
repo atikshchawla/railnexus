@@ -23,8 +23,10 @@ const STATUS_COLORS: Record<BlockStatus, string> = {
   Draft: "#6B7280",
   Submitted: "#6B7280",
   "Under review": "#CA8A04",
+  Proposed: "#00356B",
   Approved: "#15803D",
   Active: "#1D4ED8",
+  Completed: "#374151",
   Closed: "#374151",
   Rejected: "#DC2626",
 };

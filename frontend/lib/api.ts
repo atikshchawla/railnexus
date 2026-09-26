@@ -102,6 +102,8 @@ export interface DashboardData {
   trains: TrainPath[];
   stations: Station[];
   topology: TopologyResponse[];
+  movements?: MovementResponse[];
+  rawTrains?: TrainResponse[];
   syncedAt: string;
 }
 
@@ -220,7 +222,9 @@ function toBlock(
       kmStart: request.location_km,
       kmEnd: request.location_km,
       line: (metadata.line === "DN" ? "DN" : metadata.line === "UP/DN" ? "UP/DN" : "UP"),
+      section: request.section_id,
     },
+    work_type: request.work_type,
     scheduledWindow: { start, end },
     urgency: {
       timeToBreachHours: request.deadline_minutes === null ? null : request.deadline_minutes / 60,
@@ -242,8 +246,13 @@ function toBlock(
           overrunProbability: prediction.overrun_probability,
           trainsAffected: prediction.trains_affected,
           totalDelayMinutes: prediction.total_delay_minutes,
+          severityScore: (prediction as any).severity_score ?? prediction.priority_score,
         }
       : undefined,
+    features: metadata,
+    demandedDurationMinutes: request.demanded_duration_minutes,
+    safetyCritical: request.safety_critical,
+    rawRequest: request,
     auditTrail: [],
   };
 }
@@ -471,6 +480,8 @@ export async function loadDashboardData(): Promise<DashboardData> {
       })),
     stations: [...stationMap.values()],
     topology,
+    movements,
+    rawTrains: trains,
     syncedAt: new Date().toISOString(),
   };
 }

@@ -8,7 +8,8 @@ from backend.api.schemas.maintenance import MaintenanceCreate
 from backend.database.connection import get_db, create_tables
 from backend.database.models.maintenance import MaintenanceRequest
 from backend.database.models.prediction import Prediction
-from backend.database.models.train import TmsMovement, Train
+from backend.database.models.train import LegacyTmsMovement, Train
+from backend.database.models.topology import Section, Station
 from backend.repositories.maintenance_repository import MaintenanceRepository
 from backend.services.maintenance_service import MaintenanceService
 from backend.services.prediction_service import PredictionService
@@ -70,6 +71,28 @@ def seed_demo(db: Session = Depends(get_db)) -> dict:
     """Create deterministic Chennai demo records and run every ML model once."""
     create_tables()
     section_id = "AJJ-SHU"
+
+    # ── Seed Station and Section rows (required by FK constraints) ─────────────
+    for code, name, km in [("AJJ", "Arakkonam", 68.0), ("SHU", "Sholinghur", 91.0)]:
+        if db.get(Station, code) is None:
+            db.add(Station(code=code, name=name, km_location=km, division="MAS", zone="SR"))
+    db.flush()
+
+    if db.get(Section, section_id) is None:
+        db.add(Section(
+            id=section_id,
+            division="MAS",
+            start_station_code="AJJ",
+            end_station_code="SHU",
+            start_km=68.0,
+            end_km=91.0,
+            distance_km=23.0,
+            track_count=2,
+            mps_kmh=130.0,
+        ))
+    db.flush()
+
+    # ── Maintenance requests ───────────────────────────────────────────────────
     requests = [
         ("DEMO-CHN-001", "ENGG", 12.5, 120, True),
         ("DEMO-CHN-002", "TRD", 14.0, 90, False),
@@ -92,7 +115,7 @@ def seed_demo(db: Session = Depends(get_db)) -> dict:
                 deadline_minutes=720,
                 earliest_start_minute=480,
                 latest_end_minute=900,
-                equipment_ids=[f"DEMO-EQ-{request_id[-3:] }"],
+                equipment_ids=[f"DEMO-EQ-{request_id[-3:]}"],
                 model_features=model_features(section_id, department, location_km, duration),
             )
             existing = maintenance_service.create(db, payload)
@@ -106,6 +129,7 @@ def seed_demo(db: Session = Depends(get_db)) -> dict:
             latest_prediction = prediction_service.predict(db, existing)
         prediction_ids.append(latest_prediction.id)
 
+    # ── Trains ────────────────────────────────────────────────────────────────
     train_specs = [
         ("12005", "passenger", "Chennai", "Arakkonam"),
         ("FRT-CHN-01", "freight", "Chennai", "Sholinghur"),
@@ -116,21 +140,22 @@ def seed_demo(db: Session = Depends(get_db)) -> dict:
         if train is None:
             train = Train(train_number=number, service_type=service_type, origin=origin, destination=destination)
             db.add(train)
-            db.commit()
+            db.flush()
             db.refresh(train)
         train_ids.append(train.id)
 
+    # ── Train movements via legacy tms_movements (no section FK constraint) ────
     movement_specs = [(train_ids[0], 510, 0.0), (train_ids[1], 780, 0.0)]
     for train_id, scheduled_minute, delay_minutes in movement_specs:
         movement_exists = db.scalar(
-            select(TmsMovement).where(
-                TmsMovement.train_id == train_id,
-                TmsMovement.section_id == section_id,
-                TmsMovement.scheduled_minute == scheduled_minute,
+            select(LegacyTmsMovement).where(
+                LegacyTmsMovement.train_id == train_id,
+                LegacyTmsMovement.section_id == section_id,
+                LegacyTmsMovement.scheduled_minute == scheduled_minute,
             )
         )
         if movement_exists is None:
-            db.add(TmsMovement(
+            db.add(LegacyTmsMovement(
                 train_id=train_id,
                 section_id=section_id,
                 movement_date=datetime.utcnow(),

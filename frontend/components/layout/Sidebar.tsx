@@ -10,6 +10,7 @@ import {
   CheckSquare,
   BarChart3,
   Radio,
+  BrainCircuit,
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
   { label: "Block plan", href: "/plan", icon: Calendar },
   { label: "Conflicts", href: "/conflicts", icon: AlertTriangle },
   { label: "Approvals", href: "/approvals", icon: CheckSquare },
+  { label: "AI Insights", href: "/ai-insights", icon: BrainCircuit },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
 

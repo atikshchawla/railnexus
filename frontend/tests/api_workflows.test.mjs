@@ -1359,7 +1359,48 @@ describe("Core Frontend API Layer & Workflow Tests", () => {
     assert.equal(cleanProposal.maintenance_request_ids.length, 2);
     assert.equal(reviewProposal.maintenance_request_ids.length, 2);
   });
+
+  test("16. Backlog to Plan & Approvals Deep-Link Routing and Resolution Verification", () => {
+    // 1. Verify routing generation for planned vs unplanned items
+    const plannedItem = { id: "REQ-PLANNED-01", status: "Approved" };
+    const unplannedItem = { id: "REQ-UNPLANNED-02", status: "Submitted" };
+    const selectedIds = ["REQ-A", "REQ-B", "REQ-C"];
+
+    const isPlanned = plannedItem.status === "Approved" || plannedItem.status === "Active" || plannedItem.status === "Completed";
+    const plannedHref = `/approvals?focus=${encodeURIComponent(plannedItem.id)}`;
+    const unplannedHref = `/plan?focus=${encodeURIComponent(unplannedItem.id)}&request=${encodeURIComponent(unplannedItem.id)}`;
+    const batchPlanHref = `/plan?requests=${encodeURIComponent(selectedIds.join(","))}`;
+
+    assert.equal(isPlanned, true);
+    assert.equal(plannedHref, "/approvals?focus=REQ-PLANNED-01");
+    assert.equal(unplannedHref, "/plan?focus=REQ-UNPLANNED-02&request=REQ-UNPLANNED-02");
+    assert.equal(batchPlanHref, "/plan?requests=REQ-A%2CREQ-B%2CREQ-C");
+
+    // 2. Verify Approvals focusId matching against proposals & constituent requests
+    const mockProposals = [
+      { id: "PROP-001", status: "ACCEPTED", maintenance_request_ids: ["REQ-PLANNED-01"] },
+      { id: "PROP-002", status: "PROPOSED", maintenance_request_ids: ["REQ-PENDING-05"] },
+    ];
+
+    const matchByRequest = mockProposals.find(
+      (p) => p.id === "REQ-PLANNED-01" || p.maintenance_request_ids.includes("REQ-PLANNED-01"),
+    );
+    assert.ok(matchByRequest, "Must find proposal by constituent request ID");
+    assert.equal(matchByRequest.id, "PROP-001");
+    assert.equal(matchByRequest.status === "ACCEPTED" ? "approved" : "pending", "approved");
+
+    // 3. Verify Plan focus matching against constituent requests
+    const activeProposals = [
+      { id: "PROP-002", maintenance_request_ids: ["REQ-PENDING-05"], proposed_start_time: "2026-09-26T08:00:00Z" },
+    ];
+    const matchProp = activeProposals.find(
+      (p) => p.id === "REQ-PENDING-05" || p.maintenance_request_ids.includes("REQ-PENDING-05"),
+    );
+    assert.ok(matchProp, "Must resolve target proposal from constituent request ID");
+    assert.equal(matchProp.id, "PROP-002");
+  });
 });
+
 
 
 

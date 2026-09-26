@@ -6,7 +6,11 @@
   <title>RailNexus DevKit</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'" />
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+  </noscript>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -27,7 +31,7 @@
     html, body { height: 100%; }
 
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -515,7 +519,7 @@
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--border);
       font-size: 10.5px;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       color: var(--text-muted);
       margin-top: 2px;
     }
@@ -592,11 +596,12 @@
 </div>
 
 <script>
-const API = 'http://localhost:4242';
+const API = window.location.origin;
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let services = {};
 let activeId = null;
+let globalStream = null;
 let activeStream = null;
 let autoScroll = true;
 let logLineCount = 0;
@@ -605,7 +610,13 @@ let logLineCount = 0;
 async function init() {
   await fetchServices();
   connectGlobalStream();
+  setInterval(fetchServices, 2500);
 }
+
+window.addEventListener('beforeunload', () => {
+  if (globalStream) { globalStream.close(); globalStream = null; }
+  if (activeStream) { activeStream.close(); activeStream = null; }
+});
 
 async function fetchServices() {
   try {
@@ -613,6 +624,7 @@ async function fetchServices() {
     const list = await res.json();
     for (const svc of list) services[svc.id] = svc;
     renderSidebar();
+    if (activeId) updateTerminalHeader();
   } catch (e) {
     console.error('Failed to load services', e);
   }
@@ -620,29 +632,53 @@ async function fetchServices() {
 
 // ─── Global SSE ───────────────────────────────────────────────────────────────
 function connectGlobalStream() {
+  if (globalStream) {
+    try { globalStream.close(); } catch {}
+    globalStream = null;
+  }
   const es = new EventSource(`${API}/api/stream`);
+  globalStream = es;
   es.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    if (msg.type === 'status' && msg.serviceId) {
-      if (services[msg.serviceId]) {
-        services[msg.serviceId].status = msg.status;
-        updateServiceCard(msg.serviceId);
-        if (activeId === msg.serviceId) updateTerminalHeader();
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'status' && msg.serviceId) {
+        if (services[msg.serviceId]) {
+          services[msg.serviceId].status = msg.status;
+          updateServiceCard(msg.serviceId);
+          if (activeId === msg.serviceId) updateTerminalHeader();
+        }
       }
+    } catch {}
+  };
+  es.onerror = () => {
+    if (es.readyState === EventSource.CLOSED) {
+      try { es.close(); } catch {}
+      if (globalStream === es) globalStream = null;
+      setTimeout(connectGlobalStream, 4000);
     }
   };
-  es.onerror = () => setTimeout(connectGlobalStream, 3000);
 }
 
 // ─── Per-service SSE ──────────────────────────────────────────────────────────
 function openServiceStream(id) {
-  if (activeStream) { activeStream.close(); activeStream = null; }
+  if (activeStream) {
+    try { activeStream.close(); } catch {}
+    activeStream = null;
+  }
   const es = new EventSource(`${API}/api/services/${id}/stream`);
   activeStream = es;
   es.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    if (msg.type === 'log' && activeId === id) appendLog(msg.line);
-    if (msg.type === 'status' && activeId === id) updateTerminalHeader();
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'log' && activeId === id) appendLog(msg.line);
+      if (msg.type === 'status' && activeId === id) updateTerminalHeader();
+    } catch {}
+  };
+  es.onerror = () => {
+    if (es.readyState === EventSource.CLOSED) {
+      try { es.close(); } catch {}
+      if (activeStream === es) activeStream = null;
+    }
   };
 }
 

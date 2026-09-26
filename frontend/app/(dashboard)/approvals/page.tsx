@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/layout";
 import { useDashboardData } from "@/lib/dashboard-context";
 import { AcronymLegend, DepartmentBadge } from "@/components/shared";
@@ -17,6 +18,7 @@ import {
   ArrowUpDown,
   CheckSquare,
   Square,
+  Check,
 } from "lucide-react";
 import type { ApprovalProposalRecord, ProposalApprovePayload } from "@/lib/types";
 import { approveProposal, rejectProposal } from "@/lib/api";
@@ -25,6 +27,7 @@ import {
   getProposalRiskMetrics,
   formatTime,
   formatDate,
+  getShortProposalId,
   type RiskMetrics,
 } from "@/components/approvals/approval-utils";
 import { ProposalRow } from "@/components/approvals/ProposalRow";
@@ -38,6 +41,9 @@ type SortMode = "soonest" | "lowest_confidence" | "highest_saving" | "needs_atte
 type RiskFilterMode = "all" | "attention" | "clear" | "blocked";
 
 export default function ApprovalsPage() {
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get("block_id") || searchParams.get("focus");
+
   const { data, refresh } = useDashboardData();
   const { proposals, operationalBlocks, blocks, topology } = data;
 
@@ -51,6 +57,8 @@ export default function ApprovalsPage() {
   const [expandedProposalIds, setExpandedProposalIds] = useState<Set<string>>(new Set());
   const [selectedProposalIds, setSelectedProposalIds] = useState<Set<string>>(new Set());
 
+
+
   // Action status message
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -61,6 +69,41 @@ export default function ApprovalsPage() {
   const [rejectTargetProposal, setRejectTargetProposal] = useState<ApprovalProposalRecord | null>(null);
   const [isBatchApproveOpen, setIsBatchApproveOpen] = useState(false);
   const [batchProgressText, setBatchProgressText] = useState<string | undefined>(undefined);
+
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedDrawerProposal, setSelectedDrawerProposal] = useState<ApprovalProposalRecord | null>(null);
+
+  const handleOpenDrawer = (proposal: ApprovalProposalRecord) => {
+    setSelectedDrawerProposal(proposal);
+    setDrawerOpen(true);
+  };
+
+  // Auto-open focused proposal in drawer
+  const handledFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusId || proposals.length === 0) return;
+    if (handledFocusRef.current === focusId) return;
+
+    const target = proposals.find(
+      (p) =>
+        p.id === focusId ||
+        (p.maintenance_request_ids && p.maintenance_request_ids.includes(focusId)) ||
+        p.operational_block_id === focusId,
+    );
+    if (target) {
+      handledFocusRef.current = focusId;
+      if (target.status === "ACCEPTED" || target.status === "OVERRIDDEN") {
+        setActiveTab("approved");
+      } else if (target.status === "REJECTED") {
+        setActiveTab("rejected");
+      } else {
+        setActiveTab("pending");
+      }
+      handleOpenDrawer(target);
+      setExpandedProposalIds((prev) => new Set([...prev, target.id]));
+    }
+  }, [focusId, proposals]);
 
   // ─── Filtered Data ──────────────────────────────────────────────────────────
   const pendingProposals = useMemo(
@@ -367,25 +410,6 @@ export default function ApprovalsPage() {
       />
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-canvas">
-        {/* Human-in-the-Loop Operational Banner */}
-        <div className="shrink-0 bg-surface-sunken border-b border-border-default px-5 py-2.5 flex items-center justify-between gap-4 text-[12px]">
-          <div className="flex items-center gap-2 text-text-primary">
-            <span className="p-1 rounded bg-brand/10 text-brand">
-              <Sparkles size={14} />
-            </span>
-            <span>
-              <strong>RailNexus Lifecycle:</strong> AI / CP-SAT Recommendation &rarr; <strong>Block Proposal</strong> &rarr;{" "}
-              <span className="text-amber-600 font-semibold underline decoration-amber-500/50 underline-offset-2">
-                Section Controller Decision
-              </span>{" "}
-              &rarr; <strong>Authoritative Operational Block</strong>.
-            </span>
-          </div>
-          <div className="text-[11px] text-text-secondary flex items-center gap-2">
-            <Info size={13} className="text-text-secondary" />
-            <span>A BlockProposal is not legal possession until authorized.</span>
-          </div>
-        </div>
 
         {/* Action alert message */}
         {actionMessage && (
@@ -409,271 +433,118 @@ export default function ApprovalsPage() {
           </div>
         )}
 
-        {/* Tab & Metric Navigation Bar */}
-        <div className="shrink-0 px-5 bg-surface border-b border-border-default flex items-center justify-between text-[12px]">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab("pending")}
-              className={`py-3 px-3 font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
-                activeTab === "pending"
-                  ? "border-brand text-brand"
-                  : "border-transparent text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              <span>Awaiting Decision</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold ${
-                  pendingProposals.length > 0 ? "bg-brand/15 text-brand" : "bg-surface-sunken text-text-secondary"
-                }`}
-              >
-                {pendingProposals.length}
-              </span>
+        {/* Top Status Summary */}
+        <div className="shrink-0 px-6 py-4 bg-surface border-b border-border-default flex items-center justify-between">
+          <div className="flex gap-6">
+            <button onClick={() => setActiveTab("pending")} className={`flex flex-col text-left transition-colors ${activeTab === "pending" ? "text-brand" : "text-text-secondary hover:text-text-primary"}`}>
+              <span className="text-[10px] font-bold uppercase tracking-wider mb-0.5">Awaiting Decision</span>
+              <span className="text-[24px] font-black leading-none">{pendingProposals.length}</span>
             </button>
-
-            <button
-              onClick={() => setActiveTab("approved")}
-              className={`py-3 px-3 font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
-                activeTab === "approved"
-                  ? "border-positive text-positive"
-                  : "border-transparent text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              <span>Operational Possessions</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[11px] font-bold bg-positive/15 text-positive">
-                {operationalBlocks.length}
-              </span>
+            <div className="w-px h-10 bg-border-default mx-2" />
+            <button onClick={() => setActiveTab("approved")} className={`flex flex-col text-left transition-colors ${activeTab === "approved" ? "text-positive" : "text-text-secondary hover:text-text-primary"}`}>
+              <span className="text-[10px] font-bold uppercase tracking-wider mb-0.5">Operational Possessions</span>
+              <span className="text-[24px] font-black leading-none">{operationalBlocks.length}</span>
             </button>
-
-            <button
-              onClick={() => setActiveTab("rejected")}
-              className={`py-3 px-3 font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
-                activeTab === "rejected"
-                  ? "border-critical text-critical"
-                  : "border-transparent text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              <span>Rejected History</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[11px] font-bold bg-critical/15 text-critical">
-                {rejectedProposals.length}
-              </span>
+            <div className="w-px h-10 bg-border-default mx-2" />
+            <button onClick={() => setActiveTab("rejected")} className={`flex flex-col text-left transition-colors ${activeTab === "rejected" ? "text-critical" : "text-text-secondary hover:text-text-primary"}`}>
+              <span className="text-[10px] font-bold uppercase tracking-wider mb-0.5">Rejected</span>
+              <span className="text-[24px] font-black leading-none">{rejectedProposals.length}</span>
             </button>
           </div>
-
-          <div className="flex items-center gap-4">
-            <span className="text-[11.5px] text-text-secondary">
-              Combined Possession Saving:{" "}
-              <strong className="text-positive font-mono font-medium">
-                {pendingProposals.reduce((sum, p) => sum + (p.possession_saving_minutes || 0), 0).toFixed(0)} min
-              </strong>
+          <div className="flex flex-col text-right">
+            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-0.5">Combined Possession Saving</span>
+            <span className="text-[24px] font-black text-text-primary leading-none">
+              {pendingProposals.reduce((sum, p) => sum + (p.possession_saving_minutes || 0), 0).toFixed(0)} <span className="text-[14px] font-semibold text-text-secondary">min</span>
             </span>
-            <button
-              onClick={() => refresh()}
-              disabled={actionLoading}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] border border-border-default text-text-secondary hover:text-text-primary hover:bg-surface-sunken transition-colors cursor-pointer disabled:opacity-50 rounded-sm"
-            >
-              <RefreshCw size={11} className={actionLoading ? "animate-spin" : ""} />
-              Refresh
-            </button>
           </div>
         </div>
 
+        {/* ─── MAIN WORKSPACE: Queue + Drawer ───────────────────────────────── */}
+        <div className="flex-1 min-h-0 flex">
+          {/* Main Queue Column */}
+          <div className="flex-1 min-w-0 flex flex-col">
+
         {/* ─── TAB 1: AWAITING DECISION ───────────────────────────────────────── */}
         {activeTab === "pending" && (
-          <div className="flex-1 min-h-0 p-5 overflow-y-auto space-y-3.5">
-            <AcronymLegend />
+          <div className="flex-1 min-h-0 flex flex-col bg-canvas border-r border-border-default">
 
             {/* Triage & Operational Filter Bar */}
-            <div className="bg-surface border border-border-default p-3 flex items-center justify-between gap-4 flex-wrap text-[12px] shadow-xs">
+            <div className="shrink-0 bg-surface border-b border-border-default px-6 py-3 flex items-center justify-between gap-4 flex-wrap text-[12px]">
               {/* Left: Triage Pills & Status Filters */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-text-primary flex items-center gap-1 mr-1">
-                  <Filter size={13} className="text-text-secondary" /> Triage:
-                </span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary mr-2">Triage</span>
 
                 {/* All */}
-                <button
-                  onClick={() => setRiskFilter("all")}
-                  className={`px-2.5 py-1 rounded-sm text-[11.5px] font-semibold transition-colors cursor-pointer border ${
-                    riskFilter === "all"
-                      ? "bg-brand text-white border-brand"
-                      : "bg-surface-sunken text-text-secondary border-border-default hover:text-text-primary"
-                  }`}
-                >
-                  All ({riskCounts.total})
-                </button>
-
+                <button onClick={() => setRiskFilter("all")} className={`px-3 py-1.5 rounded text-[11.5px] font-bold transition-all cursor-pointer ${riskFilter === "all" ? "bg-surface-sunken text-text-primary shadow-xs border border-border-default" : "text-text-secondary hover:text-text-primary"}`}>All {riskCounts.total}</button>
                 {/* Needs Attention */}
-                <button
-                  onClick={() => setRiskFilter("attention")}
-                  className={`px-2.5 py-1 rounded-sm text-[11.5px] font-semibold transition-colors cursor-pointer border flex items-center gap-1.5 ${
-                    riskFilter === "attention"
-                      ? "bg-amber-600 text-white border-amber-600"
-                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
-                  }`}
-                >
-                  <AlertTriangle size={12} />
-                  <span>Needs Attention ({riskCounts.attentionCount})</span>
-                </button>
-
+                <button onClick={() => setRiskFilter("attention")} className={`px-3 py-1.5 rounded text-[11.5px] font-bold transition-all cursor-pointer ${riskFilter === "attention" ? "bg-amber-500/10 text-amber-600 shadow-xs border border-amber-500/30" : "text-text-secondary hover:text-text-primary"}`}>Needs Attention {riskCounts.attentionCount}</button>
                 {/* Clear */}
-                <button
-                  onClick={() => setRiskFilter("clear")}
-                  className={`px-2.5 py-1 rounded-sm text-[11.5px] font-semibold transition-colors cursor-pointer border flex items-center gap-1.5 ${
-                    riskFilter === "clear"
-                      ? "bg-positive text-white border-positive"
-                      : "bg-positive/10 text-positive border-positive/30 hover:bg-positive/20"
-                  }`}
-                >
-                  <ShieldCheck size={12} />
-                  <span>Clear ({riskCounts.clearCount})</span>
-                </button>
-
+                <button onClick={() => setRiskFilter("clear")} className={`px-3 py-1.5 rounded text-[11.5px] font-bold transition-all cursor-pointer ${riskFilter === "clear" ? "bg-positive/10 text-positive shadow-xs border border-positive/30" : "text-text-secondary hover:text-text-primary"}`}>Clear {riskCounts.clearCount}</button>
                 {/* Blocked */}
-                <button
-                  onClick={() => setRiskFilter("blocked")}
-                  className={`px-2.5 py-1 rounded-sm text-[11.5px] font-semibold transition-colors cursor-pointer border flex items-center gap-1.5 ${
-                    riskFilter === "blocked"
-                      ? "bg-critical text-white border-critical"
-                      : "bg-critical/10 text-critical border-critical/30 hover:bg-critical/20"
-                  }`}
-                >
-                  <XCircle size={12} />
-                  <span>Blocked ({riskCounts.blockedCount})</span>
-                </button>
+                <button onClick={() => setRiskFilter("blocked")} className={`px-3 py-1.5 rounded text-[11.5px] font-bold transition-all cursor-pointer ${riskFilter === "blocked" ? "bg-critical/10 text-critical shadow-xs border border-critical/30" : "text-text-secondary hover:text-text-primary"}`}>Blocked {riskCounts.blockedCount}</button>
 
-                {/* Vertical Divider */}
-                <div className="h-4 w-px bg-border-default mx-1 hidden sm:block" />
+                <div className="h-5 w-px bg-border-default mx-3" />
 
-                {/* Department Dropdown */}
-                <select
-                  value={deptFilter}
-                  onChange={(e) => setDeptFilter(e.target.value)}
-                  className="bg-surface-sunken border border-border-default px-2 py-1 text-text-primary font-medium focus:ring-0 cursor-pointer rounded-sm text-[11.5px]"
-                >
-                  <option value="All">All Departments</option>
-                  <option value="ENGG">Engineering (ENGG)</option>
-                  <option value="TRD">Traction (TRD)</option>
-                  <option value="S&T">Signalling (S&T)</option>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary mr-2">Filter</span>
+                <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="bg-surface border border-border-default px-3 py-1.5 text-text-primary font-medium focus:ring-0 cursor-pointer rounded text-[11.5px] shadow-xs">
+                  <option value="All">Department</option>
+                  <option value="ENGG">ENGG</option>
+                  <option value="TRD">TRD</option>
+                  <option value="S&T">S&T</option>
                 </select>
 
-                {/* Section Dropdown */}
-                <select
-                  value={sectionFilter}
-                  onChange={(e) => setSectionFilter(e.target.value)}
-                  className="bg-surface-sunken border border-border-default px-2 py-1 text-text-primary font-medium focus:ring-0 cursor-pointer rounded-sm text-[11.5px]"
-                >
-                  <option value="All">All Sections</option>
-                  {uniqueSections.map((sec) => (
-                    <option key={sec} value={sec}>
-                      {sec}
-                    </option>
-                  ))}
+                <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="bg-surface border border-border-default px-3 py-1.5 text-text-primary font-medium focus:ring-0 cursor-pointer rounded text-[11.5px] shadow-xs">
+                  <option value="All">Section</option>
+                  {uniqueSections.map((sec) => <option key={sec} value={sec}>{sec}</option>)}
                 </select>
+                
+                {(deptFilter !== "All" || sectionFilter !== "All" || riskFilter !== "all") && (
+                  <button onClick={() => {setDeptFilter("All"); setSectionFilter("All"); setRiskFilter("all");}} className="px-2 py-1.5 text-[11px] font-bold text-critical hover:underline">Clear Filters</button>
+                )}
               </div>
 
               {/* Right: Sort Dropdown & Queue Metric */}
-              <div className="flex items-center gap-3 ml-auto">
-                <div className="flex items-center gap-1.5 text-text-secondary text-[11.5px]">
-                  <ArrowUpDown size={13} />
-                  <span className="font-semibold text-text-primary">Sort:</span>
-                  <select
-                    value={sortMode}
-                    onChange={(e) => setSortMode(e.target.value as SortMode)}
-                    className="bg-surface-sunken border border-border-default px-2 py-1 text-text-primary font-medium focus:ring-0 cursor-pointer rounded-sm text-[11.5px]"
-                  >
+              <div className="flex items-center gap-4 ml-auto">
+                <div className="flex items-center gap-2 text-text-secondary text-[11.5px]">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">Sort</span>
+                  <select value={sortMode} onChange={(e) => setSortMode(e.target.value as SortMode)} className="bg-surface border border-border-default px-3 py-1.5 text-text-primary font-medium focus:ring-0 cursor-pointer rounded text-[11.5px] shadow-xs">
                     <option value="soonest">Soonest Window</option>
-                    <option value="lowest_confidence">Lowest Confidence (Risk First)</option>
+                    <option value="lowest_confidence">Highest Risk</option>
                     <option value="highest_saving">Highest Saving</option>
-                    <option value="needs_attention">Needs Attention First</option>
+                    <option value="needs_attention">Needs Attention</option>
                   </select>
                 </div>
-
-                <div className="text-[11.5px] text-text-secondary whitespace-nowrap pl-2 border-l border-border-default">
-                  Showing <strong>{filteredAndSortedPending.length}</strong> of <strong>{pendingProposals.length}</strong>
+                <div className="text-[11.5px] text-text-secondary pl-4 border-l border-border-default">
+                  Showing {filteredAndSortedPending.length} of {pendingProposals.length}
                 </div>
+                <button onClick={() => refresh()} disabled={actionLoading} className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-surface border border-border-default rounded shadow-xs cursor-pointer transition-all" title="Refresh queue">
+                  <RefreshCw size={14} className={actionLoading ? "animate-spin" : ""} />
+                </button>
               </div>
             </div>
 
-            {/* Batch Action Bar (Visible when items selected) */}
-            {selectedProposalIds.size > 0 && (
-              <div className="bg-brand/10 border border-brand/30 rounded p-2.5 flex items-center justify-between gap-4 text-[12px] animate-in fade-in duration-150">
-                <div className="flex items-center gap-2 text-brand font-semibold">
-                  <CheckSquare size={16} />
-                  <span>
-                    {eligibleSelectedProposals.length} proposal{eligibleSelectedProposals.length !== 1 ? "s" : ""} selected (
-                    {eligibleSelectedProposals.reduce((sum, p) => sum + p.maintenance_request_ids.length, 0)} requests)
-                  </span>
+            {/* Main Queue List */}
+            <div className="flex-1 overflow-y-auto bg-canvas p-6 space-y-3">
+              {filteredAndSortedPending.length === 0 ? (
+                <div className="text-center text-text-secondary py-12 bg-surface rounded-xl border border-border-default shadow-sm">
+                  <h3 className="text-[16px] font-bold text-text-primary mb-2">NO PENDING APPROVALS</h3>
+                  <p>All maintenance block proposals have been reviewed or none match the current filters.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setSelectedProposalIds(new Set())}
-                    className="px-2.5 py-1 text-[11.5px] text-text-secondary hover:text-text-primary border border-border-default rounded bg-surface transition-colors cursor-pointer"
-                  >
-                    Clear Selection
-                  </button>
-                  <button
-                    onClick={() => setIsBatchApproveOpen(true)}
-                    disabled={eligibleSelectedProposals.length === 0}
-                    className="px-3.5 py-1 text-[11.5px] font-bold bg-brand text-white hover:bg-brand-hover rounded transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
-                  >
-                    <span>Approve Selected ({eligibleSelectedProposals.length})</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Table Header: Column Labels and Select All */}
-            <div className="bg-surface border border-border-default rounded overflow-hidden shadow-xs">
-              <div className="bg-surface-sunken border-b border-border-default px-4 py-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-text-secondary">
-                <div className="flex items-center gap-2.5">
-                  <button
-                    onClick={handleSelectAllEligible}
-                    className="text-text-secondary hover:text-brand cursor-pointer p-0.5 rounded"
-                    title="Toggle select all eligible proposals in current view"
-                  >
-                    {filteredAndSortedPending.length > 0 &&
-                    filteredAndSortedPending
-                      .filter((p) => !p.has_blocking_conflicts)
-                      .every((p) => selectedProposalIds.has(p.id)) ? (
-                      <CheckSquare size={15} className="text-brand" />
-                    ) : (
-                      <Square size={15} />
-                    )}
-                  </button>
-                  <span>Proposal &bull; Department &bull; Section &bull; Schedule</span>
-                </div>
-                <div className="flex items-center gap-8">
-                  <span>Risk / Confidence Gate</span>
-                  <span className="hidden sm:inline">Human Decision Controls</span>
-                </div>
-              </div>
-
-              {/* Main Proposal Rows (Two-Tier Hierarchy) */}
-              <div className="divide-y divide-border-default">
-                {filteredAndSortedPending.map((p) => (
+              ) : (
+                filteredAndSortedPending.map((p) => (
                   <ProposalRow
                     key={p.id}
                     proposal={p}
                     blocks={blocks}
                     topology={topology}
-                    isExpanded={expandedProposalIds.has(p.id)}
-                    onToggleExpand={() => toggleExpand(p.id)}
                     isSelected={selectedProposalIds.has(p.id)}
-                    onToggleSelect={() => toggleSelect(p.id)}
-                    onOpenAdjust={(proposal) => setAdjustTargetProposal(proposal)}
-                    onOpenReject={(proposal) => setRejectTargetProposal(proposal)}
-                    onRequestApprove={(proposal) => setConfirmApproveProposal(proposal)}
-                    actionLoading={actionLoading}
+                    onReview={() => handleOpenDrawer(p)}
                   />
-                ))}
-
-                {filteredAndSortedPending.length === 0 && (
-                  <div className="px-5 py-12 text-center text-text-secondary text-[12.5px]">
-                    No block proposals awaiting controller decision with the selected filters.
-                  </div>
-                )}
-              </div>
+                ))
+              )}
             </div>
+
+
           </div>
         )}
 
@@ -850,8 +721,134 @@ export default function ApprovalsPage() {
             </div>
           </div>
         )}
-      </div>
+          </div>
 
+          {/* Right Drawer */}
+          {drawerOpen && selectedDrawerProposal && (() => {
+            const { startKm, endKm, trackLine, constituentBlocks } = computeProposalKmBounds(selectedDrawerProposal, blocks, topology);
+            const riskMetrics = getProposalRiskMetrics(selectedDrawerProposal, constituentBlocks);
+            const reqCount = selectedDrawerProposal.maintenance_request_ids.length;
+
+            return (
+              <div className="w-[420px] shrink-0 bg-surface border-l border-border-default flex flex-col shadow-xl z-20 animate-in slide-in-from-right duration-200">
+                
+                {/* Drawer Header */}
+                <div className="px-5 py-4 border-b border-border-default bg-surface-sunken flex justify-between items-start">
+                  <div>
+                    <h3 className="text-[16px] font-black text-text-primary tracking-tight">
+                      BLOCK {getShortProposalId(selectedDrawerProposal.id)}
+                    </h3>
+                    <div className="text-[11.5px] font-bold uppercase tracking-wider text-text-secondary mt-1 flex items-center gap-2">
+                      <span className="bg-brand/10 text-brand px-1.5 rounded">{selectedDrawerProposal.section_id}</span>
+                      <span>Km {startKm.toFixed(1)}–{endKm.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setDrawerOpen(false)} className="p-1.5 text-text-secondary hover:text-text-primary bg-canvas border border-border-default rounded cursor-pointer transition-colors">
+                    <XCircle size={15} />
+                  </button>
+                </div>
+
+                {/* Drawer Content */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-6 text-[12px]">
+                  
+                  {/* Time & Saving */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-1">Time Window</div>
+                      <div className="text-[13px] font-mono font-bold text-text-primary">
+                        {formatTime(selectedDrawerProposal.proposed_start_time)} → {formatTime(selectedDrawerProposal.proposed_end_time)}
+                      </div>
+                      <div className="text-[11px] text-text-secondary font-mono mt-0.5">
+                        {selectedDrawerProposal.predicted_duration_minutes.toFixed(0)} mins
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-1">Possession Saving</div>
+                      <div className="text-[13px] font-mono font-bold text-positive bg-positive/10 px-2 py-0.5 rounded w-max">
+                        +{selectedDrawerProposal.possession_saving_minutes.toFixed(0)} min
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-border-default w-full" />
+
+                  {/* AI Assessment */}
+                  <div className="space-y-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">AI / Operational Assessment</div>
+                    
+                    <div className={`p-3 rounded border ${riskMetrics.isBlocked ? 'bg-critical/10 border-critical/30' : riskMetrics.needsAttention ? 'bg-amber-500/10 border-amber-500/30' : 'bg-positive/10 border-positive/30'}`}>
+                      <div className="flex items-center gap-2 font-bold mb-1">
+                        {riskMetrics.isBlocked ? <AlertTriangle size={14} className="text-critical"/> : riskMetrics.needsAttention ? <AlertTriangle size={14} className="text-amber-600"/> : <ShieldCheck size={14} className="text-positive"/>}
+                        <span className={riskMetrics.isBlocked ? "text-critical" : riskMetrics.needsAttention ? "text-amber-600" : "text-positive"}>
+                          {riskMetrics.statusLabel} · {riskMetrics.confidence}% Confidence
+                        </span>
+                      </div>
+                      <p className={`text-[11px] ${riskMetrics.isBlocked ? "text-critical" : riskMetrics.needsAttention ? "text-amber-600" : "text-positive"}`}>{riskMetrics.reason}</p>
+                    </div>
+
+                    <div className="space-y-2 text-[11.5px] text-text-primary">
+                      <div className="flex items-center justify-between"><span className="text-text-secondary">Compatible section</span> <Check size={14} className="text-positive"/></div>
+                      <div className="flex items-center justify-between"><span className="text-text-secondary">Spatially compatible</span> <Check size={14} className="text-positive"/></div>
+                      <div className="flex items-center justify-between"><span className="text-text-secondary">Equipment conflict</span> {riskMetrics.isBlocked ? <XCircle size={14} className="text-critical"/> : <Check size={14} className="text-positive"/>}</div>
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-border-default w-full" />
+
+                  {/* Requests */}
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-3">Requests ({reqCount})</div>
+                    <div className="space-y-2">
+                      {constituentBlocks.map((b, i) => (
+                        <div key={b.id} className="p-2.5 border border-border-default bg-canvas rounded flex flex-col gap-1">
+                          <div className="flex justify-between items-center">
+                            <span className="font-mono font-bold text-brand text-[11px]">{b.id}</span>
+                            <DepartmentBadge dept={b.department} />
+                          </div>
+                          <span className="font-medium text-[11px]">{b.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Drawer Footer Actions */}
+                <div className="px-5 py-4 border-t border-border-default bg-surface-sunken flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      if (!riskMetrics.isBlocked) setConfirmApproveProposal(selectedDrawerProposal);
+                    }}
+                    disabled={actionLoading || riskMetrics.isBlocked}
+                    className={`w-full py-2.5 text-[12px] font-bold rounded shadow-xs flex items-center justify-center gap-2 transition-colors ${riskMetrics.isBlocked ? 'bg-surface border border-border-default text-text-secondary opacity-50 cursor-not-allowed' : 'bg-brand text-white hover:bg-brand-hover cursor-pointer'}`}
+                  >
+                    <CheckSquare size={14} /> Approve Block
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setAdjustTargetProposal(selectedDrawerProposal)}
+                      disabled={actionLoading}
+                      className="flex-1 py-2 text-[11px] font-bold rounded border border-amber-500/40 text-amber-600 hover:bg-amber-500/10 cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <SlidersHorizontal size={12} /> Adjust
+                    </button>
+                    <button
+                      onClick={() => setRejectTargetProposal(selectedDrawerProposal)}
+                      disabled={actionLoading}
+                      className="flex-1 py-2 text-[11px] font-bold rounded border border-critical/30 text-critical hover:bg-critical/10 cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <XCircle size={12} /> Reject
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            );
+          })()}
+
+        </div>
+
+      </div>
       {/* ─── MODAL 1: BUNDLE APPROVAL CONFIRMATION ──────────────────────────── */}
       {confirmApproveProposal && (() => {
         const { startKm, endKm, trackLine, leadDept, constituentBlocks } = computeProposalKmBounds(

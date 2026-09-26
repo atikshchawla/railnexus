@@ -41,7 +41,7 @@ export default function RegisterView({ blocks, trains, conflicts, onFocusElement
         id: b.id,
         rowType: "block",
         department: b.department,
-        description: `${b.label || b.description || "Block"}${b.isShadow ? " [SHADOW]" : ""}`,
+        description: `${b.label || b.description || "Block"}${b.isShadow ? " [UNASSIGNED]" : ""}`,
         kmRange: `${b.km_start}–${b.km_end}`,
         timeWindow: `${formatTime(b.time_start)}–${formatTime(b.time_end)}`,
         status: b.status,
@@ -110,7 +110,7 @@ export default function RegisterView({ blocks, trains, conflicts, onFocusElement
     else { setSortKey(key); setSortDir("asc"); }
   };
 
-  const SortHeader = ({ k, label }: { k: SortKey; label: string }) => (
+  const renderSortHeader = (k: SortKey, label: string) => (
     <th scope="col"
       className="px-3 py-2 font-medium cursor-pointer hover:text-text-primary select-none"
       onClick={() => toggleSort(k)}>
@@ -129,14 +129,14 @@ export default function RegisterView({ blocks, trains, conflicts, onFocusElement
       <table className="w-full text-[12px]">
         <thead>
           <tr className="bg-surface-sunken text-text-secondary text-left sticky top-0 z-10">
-            <SortHeader k="id" label="ID" />
-            <SortHeader k="type" label="Type" />
-            <SortHeader k="department" label="Dept" />
+            {renderSortHeader("id", "ID")}
+            {renderSortHeader("type", "Type")}
+            {renderSortHeader("department", "Dept")}
             <th scope="col" className="px-3 py-2 font-medium">Description</th>
-            <SortHeader k="km" label="Km range" />
-            <SortHeader k="time" label="Time" />
-            <SortHeader k="status" label="Status" />
-            <SortHeader k="priority" label="Priority" />
+            {renderSortHeader("km", "Km range")}
+            {renderSortHeader("time", "Time")}
+            {renderSortHeader("status", "Status")}
+            {renderSortHeader("priority", "Priority")}
             <th scope="col" className="px-3 py-2 font-medium">Conflicts</th>
           </tr>
         </thead>

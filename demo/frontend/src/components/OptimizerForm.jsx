@@ -104,9 +104,7 @@ export default function OptimizerForm({ network }) {
     }
 
     // 2. Try Mid-Layer Gateway (port 9002)
-    const reqId = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : '10000000-0000-4000-8000-' + Math.floor(Math.random() * 1e12).toString().padStart(12, '0');
+    const reqId = req.id;
 
     try {
       const res = await fetch('http://localhost:9002/requests', {

@@ -72,13 +72,13 @@ class DemoGatewayService:
             maintenance_request_id: str | None = None
             if request.type == "maintenance_block":
                 source_system, canonical_dept = map_source_and_department(request.department)
-                maintenance_request_id = f"DEMO-{request.request_id.hex[:12].upper()}"
+                maintenance_request_id = str(request.request_id)
                 features = self._model_features(request, canonical_dept, source_system)
                 payload = MaintenanceCreate(
                     id=maintenance_request_id,
                     section_id=request.section_id,
                     department=canonical_dept,
-                    work_type="DEMO_MAINTENANCE_BLOCK",
+                    work_type="Maintenance Block",
                     location_km=TRAINED_SECTION_KM[request.section_id],
                     priority="HIGH",
                     safety_critical=True,

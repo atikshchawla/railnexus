@@ -278,7 +278,7 @@ export default function BlockPlanChart({
           ))}
         </g>
 
-        {/* ── Layer 2: Caution bands (proposed blocks — dashed outline only) */}
+        {/* ── Layer 2: Caution bands (proposed blocks) */}
         <g className="caution-layer">
           {blocks.filter(b => b.status === "proposed" && !b.isShadow).map(block => {
             const x = getX(block.time_start);
@@ -287,10 +287,14 @@ export default function BlockPlanChart({
             const h = getY(Math.max(block.km_start, block.km_end)) - y;
             return (
               <g key={`caution-${block.id}`} className="cursor-pointer" onClick={() => onSelect(block.id, "block")}>
+                <title>{`BLOCK: ${block.label}\nDept: ${block.department}\nStatus: ${block.status.toUpperCase()}\nTime: ${formatTime(block.time_start)} - ${formatTime(block.time_end)}\nKM: ${block.km_start} - ${block.km_end}`}</title>
+                {/* Hit area expander */}
+                <rect x={x} y={y - 8} width={Math.max(w, 20)} height={Math.max(h, 8) + 16} fill="transparent" />
                 <rect x={x} y={y} width={Math.max(w, 4)} height={Math.max(h, 8)}
-                  fill="none" stroke={getDeptColor(block.department)} strokeWidth={1.5} strokeDasharray="6,4" opacity={0.6} />
-                <text x={x + 3} y={y + 11} fontSize={9} fill={getDeptColor(block.department)} fontWeight={500}>
-                  {block.id}: {block.label}
+                  fill={getDeptColor(block.department)} fillOpacity={0.08}
+                  stroke={getDeptColor(block.department)} strokeWidth={1.5} strokeDasharray="6,4" opacity={0.8} />
+                <text x={x + 3} y={y + 11} fontSize={10} fill={getDeptColor(block.department)} fontWeight={600} className="halo-text">
+                  {block.label}
                 </text>
               </g>
             );
@@ -314,6 +318,9 @@ export default function BlockPlanChart({
             return (
               <g key={`block-${block.id}`} className="cursor-pointer" onClick={() => onSelect(block.id, "block")}
                 opacity={blockOpacity(block.status)}>
+                <title>{`BLOCK: ${block.label}\nDept: ${block.department}\nStatus: ${block.status.toUpperCase()}\nPri: ${block.priorityTier}\nTime: ${formatTime(block.time_start)} - ${formatTime(block.time_end)}\nKM: ${block.km_start} - ${block.km_end}`}</title>
+                {/* Hit area expander */}
+                <rect x={x} y={y - 8} width={Math.max(w, 20)} height={Math.max(h, 8) + 16} fill="transparent" />
                 {/* Priority left-border accent */}
                 {pBorder.width > 0 && (
                   <rect x={x} y={y} width={pBorder.width} height={Math.max(h, 8)}
@@ -327,9 +334,9 @@ export default function BlockPlanChart({
                   strokeWidth={isSelected ? 3 : bStyle.width}
                   strokeDasharray={bStyle.dasharray}
                 />
-                <text x={x + pBorder.width + 4} y={y + 12} fontSize={9} fill={getDeptColor(block.department)} fontWeight={600}
-                  className="pointer-events-none halo-text">
-                  {block.id}: {block.label}
+                <text x={x + pBorder.width + 4} y={y + 12} fontSize={10} fill={getDeptColor(block.department)} fontWeight={600}
+                  className="halo-text">
+                  {block.label}
                 </text>
               </g>
             );
@@ -349,16 +356,15 @@ export default function BlockPlanChart({
 
             return (
               <g key={`shadow-${block.id}`} className="cursor-pointer" onClick={() => onSelect(block.id, "block")}>
+                <title>{`SHADOW BLOCK: ${block.label}\nDept: ${block.department}\nTime: ${formatTime(block.time_start)} - ${formatTime(block.time_end)}\nKM: ${block.km_start} - ${block.km_end}`}</title>
+                {/* Hit area expander */}
+                <rect x={x} y={y - 8} width={Math.max(w, 20)} height={Math.max(h, 8) + 16} fill="transparent" />
                 <rect x={x} y={y} width={Math.max(w, 4)} height={Math.max(h, 8)}
                   fill={`url(#${hatchId})`} stroke={getDeptColor(block.department)}
                   strokeWidth={isSelected ? 3 : 1} strokeDasharray="4,2" />
-                <text x={x + 3} y={y + Math.max(h, 8) - 14} fontSize={8} fill={getDeptColor(block.department)} fontWeight={700}
-                  className="pointer-events-none uppercase halo-text" letterSpacing="0.5">
-                  Shadow
-                </text>
-                <text x={x + 3} y={y + Math.max(h, 8) - 4} fontSize={8} fill={getDeptColor(block.department)} fontWeight={500}
-                  className="pointer-events-none halo-text">
-                  {block.id}: {block.label}
+                <text x={x + 3} y={y + Math.max(h, 8) - 4} fontSize={9} fill={getDeptColor(block.department)} fontWeight={600}
+                  className="halo-text">
+                  {block.label}
                 </text>
               </g>
             );

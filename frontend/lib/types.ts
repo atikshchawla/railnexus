@@ -6,13 +6,14 @@
 export type Department = "Engg" | "TRD" | "S&T";
 export type Category = "IMR" | "OBS" | "PM"; // Immediate Repair, Observation, Preventive Maintenance
 export type UrgencyTier = "critical" | "warning" | "caution" | "routine";
-export type BlockStatus = "Draft" | "Submitted" | "Under review" | "Approved" | "Active" | "Closed" | "Rejected";
+export type BlockStatus = "Draft" | "Submitted" | "Under review" | "Proposed" | "Approved" | "Active" | "Completed" | "Closed" | "Rejected";
 export type SourceSystem = "TMS" | "SMMS" | "TDMS" | "Manual";
 
 export interface Location {
   kmStart: number;
   kmEnd: number;
   line: "UP" | "DN" | "UP/DN";
+  section?: string;
 }
 
 export interface Urgency {
@@ -35,6 +36,7 @@ export interface MLPrediction {
   overrunProbability: number;
   trainsAffected: number;
   totalDelayMinutes: number;
+  severityScore?: number;
 }
 
 export interface ConflictRef {
@@ -67,6 +69,11 @@ export interface BlockRecord {
   mlPrediction?: MLPrediction;
   evidence?: { photoUrls: string[]; fieldSurveyId?: string };
   auditTrail: AuditEntry[];
+  work_type?: string;
+  features?: Record<string, unknown>;
+  demandedDurationMinutes?: number;
+  safetyCritical?: boolean;
+  rawRequest?: MaintenanceRequestRecord;
 }
 
 export interface ConflictRecord {
@@ -171,6 +178,7 @@ export interface MaintenanceRequestRecord {
   safety_critical: boolean;
   deadline_minutes: number | null;
   model_features: Record<string, unknown>;
+  demanded_duration_minutes?: number;
   status: string;
   created_at: string;
   source_system?: string | null;

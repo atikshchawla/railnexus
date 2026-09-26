@@ -8,6 +8,7 @@ import { optimizeRequests } from "@/lib/api";
 import type { OptimizerResponse } from "@/lib/api";
 import { useDashboardData } from "@/lib/dashboard-context";
 import { computeConflicts, DAY_MS, HOUR_MS, clampView } from "@/lib/chart-engine";
+import { getShortProposalId } from "@/components/approvals/approval-utils";
 import type { ChartBlock, DerivedConflict } from "@/lib/types";
 
 type ViewMode = "chart" | "register";
@@ -49,7 +50,11 @@ function BlockPlanPageContent() {
     return now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   });
   const [blocks, setBlocks] = useState<ChartBlock[]>(() => 
-    data.blocks.map(b => {
+    data.blocks.filter(b => {
+      const d = new Date(b.scheduledWindow.start);
+      if (isNaN(d.getTime())) return true;
+      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) === selectedDate;
+    }).map(b => {
       const times = parseBlockTimes(b.scheduledWindow.start, b.scheduledWindow.end);
       return {
         id: b.id,
@@ -60,7 +65,7 @@ function BlockPlanPageContent() {
         time_end: times.end,
         status: b.status.toLowerCase(),
         isShadow: false,
-        label: b.description,
+        label: b.id,
         priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low"
       } as ChartBlock;
     })
@@ -76,18 +81,22 @@ function BlockPlanPageContent() {
     return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) * 1000;
   });
 
-  // Filter proposals strictly to active run
+  // Filter proposals strictly to active run and selected date
   const activeProposals = useMemo(() => {
+    let props: typeof data.proposals = [];
     if (currentRunId) {
-      return data.proposals.filter((p) => p.run_id === currentRunId);
-    }
-    // If currentRunId is not set, take the most recent run_id
-    if (data.proposals.length > 0) {
+      props = data.proposals.filter((p) => p.run_id === currentRunId);
+    } else if (data.proposals.length > 0) {
       const latestRunId = data.proposals[0].run_id;
-      return data.proposals.filter((p) => p.run_id === latestRunId);
+      props = data.proposals.filter((p) => p.run_id === latestRunId);
     }
-    return [];
-  }, [currentRunId, data.proposals]);
+    
+    return props.filter((p) => {
+      if (!p.proposed_start_time) return true;
+      const pd = new Date(p.proposed_start_time).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      return pd === selectedDate;
+    });
+  }, [currentRunId, data.proposals, selectedDate]);
 
   // Sync selectedDate with active run's proposal date ONLY when the active run changes
   const lastSyncedRunRef = useRef<string | null>(null);
@@ -151,15 +160,30 @@ function BlockPlanPageContent() {
         time_end: times.end,
         status: prop.status.toLowerCase(),
         isShadow: false,
-        label: `Proposal ${prop.id.slice(0, 8)} (${prop.section_id})`,
+        label: getShortProposalId(prop.id),
         priorityTier: prop.has_blocking_conflicts ? "P1-critical" : "P2-high",
       };
     });
   }, [activeProposals, data.blocks, data.topology]);
 
-  // If an active run is established or proposals are present, stay strictly scoped to proposalBlocks.
-  // Only fall back to raw maintenance requests if no active run has ever been initiated and no proposals exist.
-  const planBlocks = (currentRunId || data.proposals.length > 0) ? proposalBlocks : blocks;
+  // Combine active proposals with any raw maintenance requests that haven't been optimized yet.
+  const planBlocks = useMemo(() => {
+    const coveredReqIds = new Set<string>();
+    activeProposals.forEach(p => {
+      if (p.maintenance_request_ids) {
+        p.maintenance_request_ids.forEach((id: string) => coveredReqIds.add(id));
+      }
+    });
+
+    const uncoveredBlocks = blocks.filter(b => !coveredReqIds.has(b.id)).map(b => ({
+      ...b,
+      status: "unassigned",
+      isShadow: true,
+      priorityTier: "P4-low" as const
+    }));
+
+    return [...proposalBlocks, ...uncoveredBlocks];
+  }, [proposalBlocks, blocks, activeProposals]);
   const displayTrains = useMemo(() => {
     const selected = optimizer?.selected_blocks[0];
     const start = (selected?.scheduled_start_minute ?? -1) * 60_000;
@@ -177,7 +201,11 @@ function BlockPlanPageContent() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBlocks(data.blocks.map(b => {
+    setBlocks(data.blocks.filter(b => {
+      const d = new Date(b.scheduledWindow.start);
+      if (isNaN(d.getTime())) return true;
+      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) === selectedDate;
+    }).map(b => {
       const times = parseBlockTimes(b.scheduledWindow.start, b.scheduledWindow.end);
       return {
         id: b.id,
@@ -188,11 +216,11 @@ function BlockPlanPageContent() {
         time_end: times.end,
         status: b.status.toLowerCase(),
         isShadow: false,
-        label: b.description,
+        label: b.id,
         priorityTier: b.urgency.tier === "critical" ? "P1-critical" : "P4-low",
       };
     }));
-  }, [data.blocks]);
+  }, [data.blocks, selectedDate]);
 
   // ─── NOW line — recompute every 30 seconds ─────────────
   useEffect(() => {
@@ -203,17 +231,62 @@ function BlockPlanPageContent() {
     return () => clearInterval(id);
   }, []);
 
+  // ─── Sync selectedDate with focused item date if needed ──
+  useEffect(() => {
+    const focus = searchParams.get("focus") || searchParams.get("request");
+    if (!focus) return;
+
+    const targetProp = data.proposals.find(
+      (p) => p.id === focus || (p.maintenance_request_ids && p.maintenance_request_ids.includes(focus)),
+    );
+    if (targetProp && targetProp.proposed_start_time) {
+      const d = new Date(targetProp.proposed_start_time);
+      if (!isNaN(d.getTime())) {
+        const formatted = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        setSelectedDate(formatted);
+        return;
+      }
+    }
+
+    const targetReq = data.blocks.find((b) => b.id === focus);
+    if (targetReq && targetReq.scheduledWindow?.start) {
+      const d = new Date(targetReq.scheduledWindow.start);
+      if (!isNaN(d.getTime())) {
+        const formatted = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        setSelectedDate(formatted);
+      }
+    }
+  }, [searchParams, data.proposals, data.blocks]);
+
+  // ─── Handle batch requests planning param ───────────────
+  const handledRequestsRef = useRef<string | null>(null);
+  useEffect(() => {
+    const reqsParam = searchParams.get("requests");
+    if (!reqsParam || handledRequestsRef.current === reqsParam) return;
+    handledRequestsRef.current = reqsParam;
+    const reqIds = reqsParam.split(",").map((s) => s.trim()).filter(Boolean);
+    if (reqIds.length > 0) {
+      rerunOptimizer(reqIds);
+    }
+  }, [searchParams, rerunOptimizer]);
+
   // ─── URL deep-link on mount ────────────────────────────
   const handledFocusRef = useRef<string | null>(null);
   useEffect(() => {
-    const focus = searchParams.get("focus");
+    const focus = searchParams.get("focus") || searchParams.get("request");
     if (!focus) return;
     if (handledFocusRef.current === focus) return;
 
+    // Check if there is an active proposal or constituent request matching
+    const matchingProp = activeProposals.find(
+      (p) => p.id === focus || (p.maintenance_request_ids && p.maintenance_request_ids.includes(focus)),
+    );
+    const targetId = matchingProp ? matchingProp.id : focus;
+
     // Find the element
-    const block = planBlocks.find(b => b.id === focus);
-    const train = displayTrains.find(t => t.id === focus);
-    const conflict = conflicts.find(c => c.id === focus);
+    const block = planBlocks.find((b) => b.id === targetId || b.id === focus);
+    const train = displayTrains.find((t) => t.id === focus);
+    const conflict = conflicts.find((c) => c.id === focus);
 
     if (block) {
       handledFocusRef.current = focus;
@@ -249,7 +322,7 @@ function BlockPlanPageContent() {
       setViewMode("chart");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conflicts, displayTrains, planBlocks, searchParams]);
+  }, [conflicts, displayTrains, planBlocks, searchParams, activeProposals]);
 
   // ─── Callbacks ─────────────────────────────────────────
   const handleViewChange = useCallback((s: number, e: number) => {
@@ -418,148 +491,163 @@ function BlockPlanPageContent() {
       )}
 
       {(activeProposals.length > 0 || currentRunId || optimizer) && !optimizerLoading && (
-        <div className="grid grid-cols-4 gap-px bg-border-default border-b border-border-default text-[12px]">
-          <div className="bg-surface px-4 py-2">
-            <span className="text-text-secondary">Proposals ({currentRunId ? `Run ${currentRunId.slice(0, 8)}` : "Active"})</span>
-            <strong className="num ml-2">{activeProposals.length}</strong>
-          </div>
-          <div className="bg-surface px-4 py-2">
-            <span className="text-text-secondary">Possession saving</span>
-            <strong className="num ml-2">
-              {activeProposals.reduce((sum, p) => sum + (p.possession_saving_minutes || 0), 0).toFixed(1)} min
-            </strong>
-          </div>
-          <div className="bg-surface px-4 py-2">
-            <span className="text-text-secondary">Active section</span>
-            <strong className="num ml-2">{activeProposals[0]?.section_id || "Corridor"}</strong>
-          </div>
-          <div className="bg-surface px-4 py-2">
-            <span className="text-text-secondary">Blocking conflicts</span>
-            <strong className="num ml-2 text-critical">
-              {activeProposals.reduce((sum, p) => sum + (p.blocking_conflict_count || 0), 0)}
-            </strong>
+        <div className="shrink-0 px-6 pt-5 bg-canvas">
+          <div className="grid grid-cols-4 gap-5">
+            <div className="bg-surface p-4 rounded-xl shadow-sm border border-border-default flex flex-col justify-between">
+              <span className="text-[12.5px] font-bold text-text-secondary uppercase tracking-wider">Proposals {currentRunId ? `(Run ${currentRunId.slice(0, 8)})` : "(Active)"}</span>
+              <strong className="text-[32px] font-black num mt-2 tracking-tight text-text-primary">{activeProposals.length}</strong>
+            </div>
+            <div className="bg-surface p-4 rounded-xl shadow-sm border border-border-default flex flex-col justify-between">
+              <span className="text-[12.5px] font-bold text-text-secondary uppercase tracking-wider">Possession saving</span>
+              <strong className="text-[32px] font-black num mt-2 tracking-tight text-positive">
+                {activeProposals.reduce((sum, p) => sum + (p.possession_saving_minutes || 0), 0).toFixed(0)} <span className="text-[16px] font-semibold text-text-secondary tracking-normal">min</span>
+              </strong>
+            </div>
+            <div className="bg-surface p-4 rounded-xl shadow-sm border border-border-default flex flex-col justify-between">
+              <span className="text-[12.5px] font-bold text-text-secondary uppercase tracking-wider">Active section</span>
+              <strong className="text-[24px] font-black mt-3 tracking-tight text-text-primary truncate">{activeProposals[0]?.section_id || "Corridor"}</strong>
+            </div>
+            <div className="bg-surface p-4 rounded-xl shadow-sm border border-border-default flex flex-col justify-between">
+              <span className="text-[12.5px] font-bold text-text-secondary uppercase tracking-wider">Blocking conflicts</span>
+              <strong className="text-[32px] font-black num mt-2 tracking-tight text-critical">
+                {activeProposals.reduce((sum, p) => sum + (p.blocking_conflict_count || 0), 0)}
+              </strong>
+            </div>
           </div>
         </div>
       )}
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-canvas">
         {/* ─── Toolbar ──────────────────────────────────────── */}
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-border-default bg-surface shrink-0 flex-wrap">
-          {/* View toggle: Chart / Register */}
-          <div className="flex bg-surface-sunken border border-border-default">
-            {(["chart", "register"] as ViewMode[]).map(mode => (
-              <button key={mode} onClick={() => setViewMode(mode)}
-                className={`px-3 py-1.5 text-[11px] font-medium transition-colors capitalize ${
-                  viewMode === mode ? "bg-brand text-white" : "text-text-secondary hover:text-text-primary hover:bg-surface"
-                }`}>
-                {mode}
+        <div className="flex items-center justify-between gap-4 px-6 py-4 bg-canvas shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="flex bg-surface-sunken p-1 rounded-lg border border-border-default shadow-xs">
+              {(["chart", "register"] as ViewMode[]).map(mode => (
+                <button key={mode} onClick={() => setViewMode(mode)}
+                  className={`px-4 py-1.5 text-[12px] font-bold transition-all capitalize rounded-md ${
+                    viewMode === mode ? "bg-surface text-brand shadow-sm" : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                  }`}>
+                  {mode}
+                </button>
+              ))}
+            </div>
+
+            <div className="h-6 w-px bg-border-default" />
+
+            <div className="scale-95 origin-left">
+              <DateNav
+                currentDate={selectedDate}
+                onDateChange={setSelectedDate}
+              />
+            </div>
+
+            <div className="h-6 w-px bg-border-default" />
+
+            <button
+              onClick={handleRunOptimizer}
+              disabled={optimizerLoading}
+              className="px-4 py-2.5 text-[12px] font-bold bg-brand text-white hover:bg-brand-hover transition-all rounded-lg shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              {optimizerLoading ? "Optimizing..." : "Run CP-SAT Optimizer"}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {stationFilter && (
+              <button onClick={() => setStationFilter(null)}
+                className="text-[12px] text-critical font-bold hover:underline px-2 transition-all">
+                Clear filter
               </button>
-            ))}
+            )}
+            <div className="flex items-center bg-surface p-1 rounded-lg border border-border-default shadow-xs">
+              <button onClick={() => {
+                const range = viewEnd - viewStart;
+                const shift = range * 0.25;
+                const [s, e] = clampView(viewStart - shift, viewEnd - shift);
+                setViewStart(s); setViewEnd(e);
+              }} className="px-3 py-1.5 text-[12px] text-text-secondary hover:text-text-primary hover:bg-surface-sunken rounded-md font-bold transition-all">
+                &lt;
+              </button>
+              <button onClick={() => {
+                const range = viewEnd - viewStart;
+                const shift = range * 0.25;
+                const [s, e] = clampView(viewStart + shift, viewEnd + shift);
+                setViewStart(s); setViewEnd(e);
+              }} className="px-3 py-1.5 text-[12px] text-text-secondary hover:text-text-primary hover:bg-surface-sunken rounded-md font-bold transition-all">
+                &gt;
+              </button>
+              <div className="w-px h-4 bg-border-default mx-1" />
+              <button onClick={() => {
+                const mid = (viewStart + viewEnd) / 2;
+                const range = (viewEnd - viewStart) * 0.6;
+                const [s, e] = clampView(mid - range / 2, mid + range / 2);
+                setViewStart(s); setViewEnd(e);
+              }} className="px-3 py-1.5 text-[12px] text-text-secondary hover:text-text-primary hover:bg-surface-sunken rounded-md font-bold transition-all">
+                Zoom +
+              </button>
+              <button onClick={() => {
+                const mid = (viewStart + viewEnd) / 2;
+                const range = (viewEnd - viewStart) * 1.5;
+                const [s, e] = clampView(mid - range / 2, mid + range / 2);
+                setViewStart(s); setViewEnd(e);
+              }} className="px-3 py-1.5 text-[12px] text-text-secondary hover:text-text-primary hover:bg-surface-sunken rounded-md font-bold transition-all">
+                Zoom −
+              </button>
+              <div className="w-px h-4 bg-border-default mx-1" />
+              <button onClick={() => { setViewStart(0); setViewEnd(DAY_MS); }}
+                className="px-3 py-1.5 text-[12px] text-text-secondary hover:text-text-primary hover:bg-surface-sunken rounded-md font-bold transition-all">
+                Full day
+              </button>
+            </div>
           </div>
-
-          <DateNav
-            currentDate={selectedDate}
-            onDateChange={setSelectedDate}
-          />
-
-          <button
-            onClick={handleRunOptimizer}
-            disabled={optimizerLoading}
-            className="px-2.5 py-1 text-[11.5px] font-medium bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            {optimizerLoading ? "Optimizing..." : "Run CP-SAT Optimizer"}
-          </button>
-
-          {/* Zoom controls */}
-          <div className="flex items-center gap-1 ml-auto">
-            <button onClick={() => {
-              const range = viewEnd - viewStart;
-              const shift = range * 0.25;
-              const [s, e] = clampView(viewStart - shift, viewEnd - shift);
-              setViewStart(s); setViewEnd(e);
-            }} className="px-2 py-1 text-[11px] border border-border-default text-text-secondary hover:bg-surface-sunken font-medium" title="Move earlier">
-              &lt;
-            </button>
-            <button onClick={() => {
-              const range = viewEnd - viewStart;
-              const shift = range * 0.25;
-              const [s, e] = clampView(viewStart + shift, viewEnd + shift);
-              setViewStart(s); setViewEnd(e);
-            }} className="px-2 py-1 text-[11px] border border-border-default text-text-secondary hover:bg-surface-sunken font-medium mr-2" title="Move later">
-              &gt;
-            </button>
-            <button onClick={() => {
-              const mid = (viewStart + viewEnd) / 2;
-              const range = (viewEnd - viewStart) * 0.6;
-              const [s, e] = clampView(mid - range / 2, mid + range / 2);
-              setViewStart(s); setViewEnd(e);
-            }} className="px-2 py-1 text-[11px] border border-border-default text-text-secondary hover:bg-surface-sunken font-medium">
-              Zoom +
-            </button>
-            <button onClick={() => {
-              const mid = (viewStart + viewEnd) / 2;
-              const range = (viewEnd - viewStart) * 1.5;
-              const [s, e] = clampView(mid - range / 2, mid + range / 2);
-              setViewStart(s); setViewEnd(e);
-            }} className="px-2 py-1 text-[11px] border border-border-default text-text-secondary hover:bg-surface-sunken font-medium">
-              Zoom −
-            </button>
-            <button onClick={() => { setViewStart(0); setViewEnd(DAY_MS); }}
-              className="px-2 py-1 text-[11px] border border-border-default text-text-secondary hover:bg-surface-sunken font-medium">
-              Full day
-            </button>
-          </div>
-
-          {stationFilter && (
-            <button onClick={() => setStationFilter(null)}
-              className="text-[11px] text-brand font-medium hover:underline">
-              Clear station filter
-            </button>
-          )}
         </div>
 
         {/* ─── Main area: Chart/Register + Detail Panel ────── */}
-        <div className="flex-1 flex min-h-0">
-          {viewMode === "chart" ? (
-            <div className="flex-1 min-w-0 h-full p-3">
-              <BlockPlanChart
-                stations={stations}
+        <div className="flex-1 flex min-h-0 px-6 pb-6 gap-6 bg-canvas">
+          <div className="flex-1 min-w-0 h-full bg-surface rounded-xl border border-border-default shadow-sm overflow-hidden flex flex-col">
+            {viewMode === "chart" ? (
+              <div className="flex-1 min-w-0 h-full p-2">
+                <BlockPlanChart
+                  stations={stations}
+                  blocks={planBlocks}
+                  trains={displayTrains}
+                  conflicts={conflicts}
+                  viewStart={viewStart}
+                  viewEnd={viewEnd}
+                  onViewChange={handleViewChange}
+                  selectedId={selectedId}
+                  onSelect={handleSelect}
+                  stationFilter={stationFilter}
+                  onStationFilter={setStationFilter}
+                  nowMs={nowMs}
+                />
+              </div>
+            ) : (
+              <RegisterView
                 blocks={planBlocks}
                 trains={displayTrains}
                 conflicts={conflicts}
-                viewStart={viewStart}
-                viewEnd={viewEnd}
-                onViewChange={handleViewChange}
-                selectedId={selectedId}
-                onSelect={handleSelect}
-                stationFilter={stationFilter}
-                onStationFilter={setStationFilter}
-                nowMs={nowMs}
+                onFocusElement={handleFocusElement}
               />
-            </div>
-          ) : (
-            <RegisterView
-              blocks={planBlocks}
-              trains={displayTrains}
-              conflicts={conflicts}
-              onFocusElement={handleFocusElement}
-            />
-          )}
+            )}
+          </div>
 
           {/* Detail Panel */}
           {selectedId && selectedType && (
-            <DetailPanel
-              selectedId={selectedId}
-              selectedType={selectedType}
-              blocks={planBlocks}
-              trains={displayTrains}
-              conflicts={conflicts}
-              stations={stations}
-              onClose={handleClose}
-              onApplyResolution={handleApplyResolution}
-              onSendForApproval={handleSendForApproval}
-              onSelectConflict={(id) => handleSelect(id, "conflict")}
-            />
+            <div className="w-[360px] shrink-0 bg-surface rounded-xl border border-border-default shadow-sm overflow-hidden flex flex-col transition-all">
+              <DetailPanel
+                selectedId={selectedId}
+                selectedType={selectedType}
+                blocks={planBlocks}
+                trains={displayTrains}
+                conflicts={conflicts}
+                stations={stations}
+                onClose={handleClose}
+                onApplyResolution={handleApplyResolution}
+                onSendForApproval={handleSendForApproval}
+                onSelectConflict={(id) => handleSelect(id, "conflict")}
+              />
+            </div>
           )}
         </div>
 

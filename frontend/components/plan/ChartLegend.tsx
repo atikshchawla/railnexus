@@ -7,7 +7,7 @@
 export default function ChartLegend() {
   return (
     <div className="shrink-0 border-t border-border-default bg-surface px-4 py-2 space-y-1.5">
-      {/* Row 1: Departments + Status + Shadow */}
+      {/* Row 1: Departments + Status + Unassigned */}
       <div className="flex items-center gap-5 text-[11px] text-text-secondary flex-wrap">
         <span className="text-[10px] font-semibold text-text-primary uppercase tracking-wider mr-1">Dept</span>
         <LegendSwatch color="var(--status-info)" label="Engg" />
@@ -27,7 +27,7 @@ export default function ChartLegend() {
               <line x1={8} x2={16} y1={0} y2={12} stroke="var(--text-secondary)" strokeWidth={1} opacity={0.5} />
               <line x1={16} x2={8} y1={0} y2={12} stroke="var(--text-secondary)" strokeWidth={1} opacity={0.5} />
             </svg>
-            <span>Shadow</span>
+            <span>Unassigned</span>
           </span>
         </span>
       </div>

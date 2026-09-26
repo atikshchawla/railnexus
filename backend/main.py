@@ -10,6 +10,7 @@ from ai_ml.optimizer import CorridorWindow, MaintenanceRequest, OptimizerWeights
 
 from backend.api.routes import approvals, assets, conflicts, demo, demo_gateway, maintenance, optimizer, predictions, shadow_blocks, topology, trains
 from backend.database.connection import create_tables
+from backend.scripts.migrate_schema import run_migrations
 from backend.utils.config import get_settings
 from backend.utils.logging import configure_logging
 
@@ -18,6 +19,7 @@ from backend.utils.logging import configure_logging
 async def lifespan(app: FastAPI):
     configure_logging()
     create_tables()
+    run_migrations()
     yield
 
 
